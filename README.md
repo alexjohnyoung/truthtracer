@@ -95,6 +95,8 @@ The API provides endpoints for starting an analysis and checking its status:
 - `GET /analyse-start?url={article_url}&max_references={number}` - Start analysing an article
 - `GET /analyse-status/{analysis_id}` - Check analysis status and get results
 
+![Pipeline processing](https://i.imgur.com/nIvNvUv.jpeg)
+
 ## Development
 
 ### Project Structure
