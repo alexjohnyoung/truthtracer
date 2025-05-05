@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TruthTracer - News Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="container mt-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3>TruthTracer</h3>
+                <div id="themeToggle" class="theme-toggle">
+                    <i class="bi bi-moon-fill"></i>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-info-circle-fill me-2 text-info"></i>
+                    <span>Enter a news article URL to analyse its content for potentially misleading information.</span>
+                </div>
+            </div>
+
+            <form id="analyseForm" class="mb-3">
+                <div class="input-group">
+                    <input type="url" class="form-control" id="urlInput" name="url" placeholder="🔍 Enter article URL" required>
+                    <select class="form-control" id="maxReferences" name="max_references" style="max-width: 150px;">
+                        <option value="" disabled selected>📚 Sources</option>
+                        <option value="1">1 (quickest)</option>
+                        <option value="3">3 (faster)</option>
+                        <option value="5">5 sources</option>
+                        <option value="7">7 sources</option>
+                        <option value="10">10 (thorough)</option>
+                    </select>
+                    <button class="btn btn-primary" type="submit">🔎 Analyse</button>
+                </div>
+            </form>
+
+            <div id="statusSection" class="status-container d-none">
+                <h5 class="mb-2">Analysis Progress</h5>
+                <div class="progress mb-2">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                         role="progressbar" 
+                         id="progressBar"
+                         style="width: 0%">0%</div>
+                </div>
+                <p id="currentStep" class="mb-2 small"><span id="stepName">Initialising...</span></p>
+                <div class="log-container">
+                    <div id="logMessages"></div>
+                </div>
+            </div>
+
+            <div id="resultsSection" class="results-container d-none">
+                <h4 class="mb-3">Analysis Results</h4>
+                
+                <div class="results-grid">
+                    <!-- COLUMN 1: Article Info -->
+                    <div class="col-overview">
+                        <div id="articleInfo" class="card bg-dark border-secondary h-100">
+                            <div class="card-header bg-dark border-secondary d-flex align-items-center">
+                                <i class="bi bi-newspaper me-2 text-info"></i>
+                                <h5 class="mb-0">Article Overview</h5>
+                            </div>
+                            <div class="card-body p-3">
+                                <ul class="list-group list-group-flush bg-dark mb-2">
+                                    <li class="list-group-item bg-dark text-light border-secondary py-2">
+                                        <div class="d-flex">
+                                            <div class="me-2 text-muted"><i class="bi bi-card-heading"></i></div>
+                                            <div class="fw-bold me-1">Title:</div>
+                                            <div id="articleTitle"></div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item bg-dark text-light border-secondary py-2">
+                                        <div class="d-flex">
+                                            <div class="me-2 text-muted"><i class="bi bi-person"></i></div>
+                                            <div class="fw-bold me-1">Author:</div>
+                                            <div id="articleAuthor"></div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item bg-dark text-light border-secondary py-2">
+                                        <div class="d-flex">
+                                            <div class="me-2 text-muted"><i class="bi bi-globe"></i></div>
+                                            <div class="fw-bold me-1">Website:</div>
+                                            <div id="articleWebsite"></div>
+                                        </div>
+                                    </li>
+                                    <li class="list-group-item bg-dark text-light border-secondary py-2">
+                                        <div class="d-flex">
+                                            <div class="me-2 text-muted"><i class="bi bi-calendar"></i></div>
+                                            <div class="fw-bold me-1">Date:</div>
+                                            <div id="articleDate"></div>
+                                        </div>
+                                    </li>
+                                </ul>
+                                
+                                <div class="mb-2 mb-4">
+                                    <h6 class="mb-1 border-bottom pb-1"><i class="bi bi-card-text me-1 text-info"></i> Summary</h6>
+                                    <p class="text-light mb-0" id="articleSummary"></p>
+                                </div>
+                                
+                                <div>
+                                    <h6 class="mb-1 border-bottom pb-1"><i class="bi bi-list-check me-1 text-success"></i> Main Claims</h6>
+                                    <ul class="mb-0 compact-list" id="articleClaimsList"></ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- COLUMN 2: Reliability Analysis -->
+                    <div class="col-reliability">
+                        <div id="misleadingAnalysisSection" class="h-100">
+                            <div id="misleadingAnalysisContent" class="card bg-dark border-secondary h-100"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- COLUMN 3: Reference Articles -->
+                    <div class="col-references">
+                        <div id="referenceArticlesSection" class="h-100">
+                            <div id="referenceArticlesContent" class="card bg-dark border-secondary h-100"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="skippedReferences" class="mt-3 d-none">
+                    <h6 class="border-bottom pb-2 mb-3">Skipped Articles</h6>
+                    <div id="skippedReferencesContent" class="bg-dark p-3 rounded shadow-sm"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Configuration Modal -->
+    <div class="modal fade" id="apiConfigModal" tabindex="-1" aria-labelledby="apiConfigModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-light">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="apiConfigModalLabel">API Configuration</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="apiConfigForm">
+                        <div class="mb-3">
+                            <label for="apiUrlInput" class="form-label">API Base URL</label>
+                            <input type="url" class="form-control" id="apiUrlInput" placeholder="http://localhost:8000" required>
+                            <div class="form-text text-muted">The base URL of the TruthTracer API server</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveApiConfig">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/app.js" type="module"></script>
+</body>
+</html> 

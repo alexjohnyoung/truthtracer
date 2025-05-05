@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+python-multipart
+pydantic
+beautifulsoup4
+requests
+lxml
+drissionpage
+spacy
+python-dotenv
+baml-py

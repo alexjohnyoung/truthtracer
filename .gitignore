@@ -1,0 +1,40 @@
+# Python bytecode files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# VS Code settings
+.vscode/
+
+# PyCharm settings
+.idea/
+*.iml
+
+# Environment variables
+.env
+
+# Chrome driver executable (platform-specific)
+chromedriver*
+.chrome/
+**/chrome_profile/
+
+# Log files
+*.log
+
+# Temporary files
+.DS_Store
+*.swp
+*.swo
+
+baml_client/
+
