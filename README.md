@@ -2,8 +2,6 @@
 
 TruthTracer is a sophisticated news article analysis tool designed to detect potentially misleading content by cross-referencing information with multiple sources.
 
-![Frontend GUI](https://i.imgur.com/jNb6fCt.jpeg)
-
 ## Overview
 
 TruthTracer combines web scraping and natural language processing to provide an objective assessment of news article reliability. 
@@ -94,10 +92,8 @@ To use a different port, run with the '--port' argument.
 
 The API provides endpoints for starting an analysis and checking its status:
 
-- `GET /analyze-start?url={article_url}&max_references={number}` - Start analysing an article
-- `GET /analyze-status/{analysis_id}` - Check analysis status and get results
-
-![Analysis Results](https://i.imgur.com/nIvNvUv.jpeg)
+- `GET /analyse-start?url={article_url}&max_references={number}` - Start analysing an article
+- `GET /analyse-status/{analysis_id}` - Check analysis status and get results
 
 ## Development
 
