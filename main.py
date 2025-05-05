@@ -152,11 +152,7 @@ async def process_url_async(analysis_id: str, url: str, max_references: int = 3,
             analysis_store[analysis_id]["success"] = False
             update_status("Analysis failed: could not process article", 100, "Error", -1)
             return
-            
-        # Store the successful result
-        print(f"DEBUG - Setting result in analysis_store: {type(result)}")
-        print(f"DEBUG - Result keys: {result.keys() if isinstance(result, dict) else 'Not a dict'}")
-        
+               
         analysis_store[analysis_id]["result"] = result
         analysis_store[analysis_id]["success"] = True
         
@@ -294,12 +290,6 @@ async def analyse_status(analysis_id: str):
             response["error"] = analysis_info["error"]
         else:
             response["result"] = analysis_info["result"]
-            # Debug logging for result structure
-            print(f"DEBUG - Result structure: {type(analysis_info['result'])}")
-            if analysis_info["result"]:
-                print(f"DEBUG - Result keys: {analysis_info['result'].keys() if isinstance(analysis_info['result'], dict) else 'Not a dict'}")
-                if "article" in analysis_info["result"]:
-                    print(f"DEBUG - Article keys: {analysis_info['result']['article'].keys() if isinstance(analysis_info['result']['article'], dict) else 'Not a dict'}")
     
     return response
 
