@@ -9,6 +9,8 @@ from typing import List, Dict, Optional
 from urllib.parse import urlparse, urlencode
 from bs4 import BeautifulSoup
 import warnings
+import re
+import time
 
 from src.scraping.dynamic import DynamicScraper
 from src.utils.logging_utils import get_logger
@@ -42,14 +44,6 @@ class GoogleSearchScraper:
         'he', 'him', 'his', 'she', 'her', 'hers', 'they', 'them', 'their', 'theirs',
         'myself', 'yourself', 'himself', 'herself', 'itself', 'ourselves', 'yourselves',
         'themselves', 'mine', 'yours', 'all', 'both', 'some', 'any', 'most', 'more', 'no', 'nor',
-    }
-    
-    # Common article headline terms to remove
-    COMMON_HEADLINE_PHRASES = {
-        'here are', 'here is', 'there are', 'there is', 'take a look at', 'why',
-        'how to', 'what is', 'what are', 'where is', 'where are', 'when is', 
-        'when are', 'who is', 'who are', 'this is', 'these are', 'that is',
-        'explained', 'exclusive', 'breaking', 'update', 'report', 'analysis', 'opinion'
     }
     
     def __new__(cls):
@@ -105,11 +99,6 @@ class GoogleSearchScraper:
         
         # Convert to lowercase
         query = query.lower()
-        
-        # Remove common headline phrases at the beginning
-        for phrase in self.COMMON_HEADLINE_PHRASES:
-            if query.startswith(phrase):
-                query = query.replace(phrase, '', 1).strip()
         
         # Split into words and filter out stopwords
         words = query.split()
@@ -171,6 +160,16 @@ class GoogleSearchScraper:
             publish_date: Publication date of the article being analysed (optional)
         """
         try:
+            # Enhanced logging and validation for the original_url parameter
+            if original_url:
+                self.logger.info(f"Search will filter results from domain of original URL: {original_url}")
+                original_domain = extract_domain(original_url)
+                self.logger.info(f"Original domain extracted: {original_domain}")
+                if not original_domain:
+                    self.logger.warning(f"Could not extract domain from original URL: {original_url} - domain filtering may not work")
+            else:
+                self.logger.info("No original URL provided - domain filtering won't be applied")
+                
             # Check if query already contains date-specific information
             has_date_in_query = any(term in query for term in ["date:", "before:", "after:"])
             
@@ -183,9 +182,14 @@ class GoogleSearchScraper:
             results = self._try_search(optimised_query, original_url, num_results, days_old, 
                                       has_date_in_query, publish_date)
             
-            # Post-process results to filter out the main article and its domain
-            if original_url and results:
-                results = self._filter_original_article(results, original_url)
+            # Log the final results for debugging
+            if results:
+                self.logger.info(f"Search returned {len(results)} results")
+                for i, result in enumerate(results):
+                    result_domain = extract_domain(result.get('url', ''))
+                    self.logger.info(f"Result {i+1}: {result.get('url', '')} (Domain: {result_domain})")
+            else:
+                self.logger.info("Search returned no results")
             
             return results
             
@@ -243,20 +247,28 @@ class GoogleSearchScraper:
             List of dictionaries containing article information
         """
         try:
-            # Build search URL and parameters
-            search_url = self._build_search_url(query, num_results, days_old, 
-                                               has_date_in_query, publish_date)
-            
-            self.logger.info("Using dynamic scraping for search results...")
+            # Build the search URL
+            search_url = self._build_search_url(query, num_results, days_old, has_date_in_query, publish_date)
             
             try:
                 # Get page content using DynamicScraper
                 soup = self.dynamic_scraper.get_page_content(search_url)
                 
+                # Check if we're on a consent page
+                current_url = self.dynamic_scraper.driver.url
+                if 'consent.google.com' in current_url:
+                    self.logger.info("Detected Google consent page, attempting to handle it")
+                    cookie_handled = self.dynamic_scraper.check_for_cookie_consent()
+                    
+                    if cookie_handled:
+                        self.logger.info("Successfully handled Google consent page, getting updated content")
+                        time.sleep(2)  # Wait for redirect after consent
+                        soup = self.dynamic_scraper.get_page_soup()
+                    else:
+                        self.logger.warning("Failed to handle Google consent page")
+                
                 if soup:
-                    # Extract results
                     results = self._extract_results(soup, original_url, num_results)
-                    self.logger.info(f"Dynamic scraping found {len(results)} results")
                     return results
                 else:
                     self.logger.warning(f"Dynamic scraping returned no content")
@@ -343,7 +355,8 @@ class GoogleSearchScraper:
     
     def _extract_results(self, soup: BeautifulSoup, original_url: str, num_results: int) -> List[Dict[str, str]]:
         """
-        Extract search results from soup object
+        Extract search results from soup object using a focused approach
+        based on Google's consistent news result structure
         
         Args:
             soup: BeautifulSoup object containing the search results page
@@ -357,31 +370,96 @@ class GoogleSearchScraper:
         
         # Track original URL information if provided
         original_url_info = self._get_original_url_info(original_url)
+        original_domain = original_url_info.get('domain') if original_url_info else None
         
-        # Define selectors to try for finding news article links
-        selectors = self._get_news_selectors()
+        # Enhanced logging for debugging domain filtering
+        self.logger.info(f"Original URL: {original_url}")
+        self.logger.info(f"Original domain extracted: {original_domain}")
         
         # Set to track URLs we've already processed to avoid duplicates
         processed_urls = set()
-        
-        for selector in selectors:
-            links = soup.select(selector)
-            for link in links:
+    
+        try:
+            # Find all elements with data-news attributes 
+            news_items = soup.find_all(lambda tag: tag.name == 'div' and tag.has_attr('data-news-cluster-id'))
+            self.logger.info(f"Found {len(news_items)} potential news items")
+            
+            # Process each news item
+            for item in news_items:
                 try:
-                    # Process this link
-                    result = self._process_search_result_link(link, original_url_info, processed_urls)
+                    # Primary link
+                    link = None
                     
-                    # If we got a valid result, add it
-                    if result:
-                        results.append(result)
+                    # First look for the main headline link
+                    links = item.find_all('a')
+                    if not links:
+                        continue
                         
-                        # Stop if we have enough results
-                        if len(results) >= num_results:
-                            return results
-                            
+                    # Find the most prominent link - the first with href and ping attributes
+                    for a in links:
+                        if a.has_attr('href') and a.has_attr('ping'):
+                            link = a
+                            break
+                  
+                    if not link or not link.has_attr('href'):
+                        continue
+                    
+                    # Extract URL
+                    url = link['href']
+                    
+                    # Handle Google redirect URLs
+                    if url.startswith('/url?') or 'google.com/url' in url:
+                        try:
+                            url = extract_url_from_redirect(url)
+                        except Exception as e:
+                            self.logger.warning(f"Error extracting URL from redirect: {str(e)}")
+                            continue
+                    
+                    if not url.startswith('http'):
+                        continue
+                    
+                    # Skip if should be skipped
+                    if self._should_skip_url(url, original_url_info, processed_urls):
+                        continue
+
+                    # Check if the domain matches the original article's domain
+                    if original_domain:
+                        current_domain = extract_domain(url)
+                        self.logger.info(f"Comparing domains - Result URL: {url}, Domain: {current_domain}, Original Domain: {original_domain}")
+                        if current_domain == original_domain:
+                            self.logger.info(f"FILTERED: Skipping URL from same domain as original article: {url}")
+                            continue
+                    
+                    # Find the title
+                    title = ""
+                    
+                    # Check for heading roles 
+                    heading_elem = item.find(attrs={"role": "heading"}) # Google news results have a heading role
+                    if heading_elem:
+                        title = heading_elem.get_text().strip()
+
+                    # If that doesn't work, try the link text itself
+                    if not title and link.string:
+                        title = link.string.strip()
+                    
+                    # Add to results
+                    processed_urls.add(url)
+                    results.append({
+                        'url': url,
+                        'title': title
+                    })
+                    self.logger.info(f"Added news result: {url} - {title}")
+                    
+                    # Stop if we have enough results
+                    if len(results) >= num_results:
+                        return results
+                
                 except Exception as e:
-                    self.logger.warning(f"Error parsing search result: {str(e)}")
+                    self.logger.warning(f"Error processing news item: {str(e)}")
                     continue
+        
+        except Exception as e:
+            self.logger.error(f"Error extracting news results: {str(e)}")
         
         return results
         
@@ -406,102 +484,7 @@ class GoogleSearchScraper:
         except:
             self.logger.warning(f"Could not parse original URL: {original_url}")
             return None
-            
-    def _get_news_selectors(self) -> List[str]:
-        """
-        Get the list of CSS selectors to try for finding news article links
-        
-        Returns:
-            List of CSS selector strings
-        """
-        return [
-            '.WlydOe', # Original news selector
-            '.dbsr', # Another news selector
-            '.SoaBEf', # Google News specific
-            'a.WlydOe', # Direct anchor links
-            'a[href^="/url"]', # URL redirect links
-            'h3.r a', # Classic Google search results
-            '.g .rc a', # Another classic format
-            '.g a', # Most basic link selector
-        ]
-        
-    def _process_search_result_link(self, link: BeautifulSoup, original_url_info: Optional[Dict], 
-                                   processed_urls: set) -> Optional[Dict]:
-        """
-        Process a single search result link element
-        
-        Args:
-            link: BeautifulSoup element containing a search result
-            original_url_info: Information about the original URL to filter out
-            processed_urls: Set of already processed URLs
-            
-        Returns:
-            Result dictionary or None if invalid
-        """
-        # Try to get the URL
-        url = self._extract_url_from_link(link)
-        if not url:
-            return None
-            
-        # Skip unwanted URLs
-        if self._should_skip_url(url, original_url_info, processed_urls):
-            return None
-            
-        # Get the title
-        title = self._extract_title_from_link(link, url)
-        if not title:
-            return None
-                    
-        # Add the URL to processed URLs
-        processed_urls.add(url)
-        
-        # Return the result
-        self.logger.info(f"Added result: {url} - {title}")
-        return {
-            'url': url,
-            'title': title
-        }
-        
-    def _extract_url_from_link(self, link: BeautifulSoup) -> Optional[str]:
-        """
-        Extract URL from a search result link element
-        
-        Args:
-            link: BeautifulSoup element containing a search result
-            
-        Returns:
-            URL string or None if not found
-        """
-        # Try to get the URL
-        url = None
-        if link.name == 'a' and link.has_attr('href'):
-            url = link['href']
-        else:
-            # If not an anchor, find the first anchor inside
-            anchor = link.find('a')
-            if anchor and anchor.has_attr('href'):
-                url = anchor['href']
-        
-        if not url:
-            return None
-            
-        # Process Google redirect URLs to get the full, unshortened destination URL
-        if url.startswith('/url?') or 'google.com/url' in url:
-            try:
-                # Use the utility function to extract URL from redirect
-                url = extract_url_from_redirect(url)
-                self.logger.info(f"Extracted full URL from Google redirect: {url}")
-            except Exception as e:
-                self.logger.warning(f"Error extracting URL from Google redirect: {str(e)}")
-                # If parsing fails, just continue with the original URL
-                pass
-                
-        # Skip if not a valid URL
-        if not url.startswith('http'):
-            return None
-            
-        return url
-        
+
     def _should_skip_url(self, url: str, original_url_info: Optional[Dict], processed_urls: set) -> bool:
         """
         Check if a URL should be skipped
@@ -525,39 +508,18 @@ class GoogleSearchScraper:
                 self.logger.info(f"Skipping URL - same as original article: {url}")
                 return True
                 
-        # Skip unwanted domains
-        if any(domain in url.lower() for domain in ['youtube.com', 'facebook.com', 'twitter.com', 'instagram.com']):
+        # Skip unwanted domains - blacklist
+        # could add more in the future
+        blacklisted_domains = [
+            'youtube.com', 'facebook.com', 'twitter.com', 'instagram.com',
+            'policies.google.com' 
+        ]
+        
+        if any(domain in url.lower() for domain in blacklisted_domains):
+            self.logger.info(f"Skipping blacklisted domain: {url}")
             return True
             
         return False
-        
-    def _extract_title_from_link(self, link: BeautifulSoup, url: str) -> Optional[str]:
-        """
-        Extract title from a search result link element
-        
-        Args:
-            link: BeautifulSoup element containing a search result
-            url: URL of the result for fallback
-            
-        Returns:
-            Title string or None if not found
-        """
-        title = ""
-        try:
-            # The main headline in modern Google News has specific classes
-            title_elem = link.find(class_=["n0jPhd", "ynAwRc", "MBeuO", "nDgy9d"])
-            if title_elem:
-                title = title_elem.get_text().strip()
-        except Exception as e:
-            self.logger.warning(f"Error extracting title: {str(e)}")
-            
-        # If we can't get a title, use the URL domain as a fallback
-        if not title:
-            parsed_url = urlparse(url)
-            title = parsed_url.netloc
-            self.logger.info(f"Using URL domain as title: {title}")
-            
-        return title
 
     def cleanup(self):
         """

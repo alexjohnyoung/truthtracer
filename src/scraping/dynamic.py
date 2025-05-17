@@ -20,7 +20,7 @@ class DynamicScraper(BaseScraper):
 
         # Optimise Chrome options for speed and stability
         options = ChromiumOptions()
-        options.set_argument('--headless') 
+        #options.set_argument('--headless') 
         options.set_argument('--disable-dev-shm-usage')
         options.set_argument('--disable-software-rasterizer')
         options.set_argument('--disable-extensions')
@@ -117,6 +117,10 @@ class DynamicScraper(BaseScraper):
         except Exception as e:
             self.logger.warning(f"Error cleaning up browser: {str(e)}")
 
+    def cleanup(self):
+        """Clean up all resources - public method called by other components"""
+        self._cleanup_browser()
+
     def get_page_soup(self) -> BeautifulSoup:
         """Get BeautifulSoup object of the current page"""
         try:
@@ -129,7 +133,7 @@ class DynamicScraper(BaseScraper):
             return soup
         except Exception as e:
             self.logger.error(f"Error getting page soup: {str(e)}")
-            return BeautifulSoup("", 'html.parser')  # Return empty soup on error
+            return BeautifulSoup("", 'html.parser') 
 
     def __del__(self):
         """Clean up resources when the object is garbage collected"""
@@ -164,20 +168,79 @@ class DynamicScraper(BaseScraper):
             True if cookie consent was handled, False otherwise
         """
         try:
+            # Special handling for Google consent pages
+            current_url = self.driver.url
+            self.logger.info(f"Checking for cookie consent on: {current_url}")
+            
+            # Google consent specific check
+            if 'consent.google.com' in current_url:
+                self.logger.info("Detected Google consent page, using special handling")
+
+                for selector in [
+                    'button[aria-label="Accept all"]',
+                    'button:contains("Accept all")',
+                    'form[action*="consent.google.com"] button',
+                    '//div[contains(@class,"tB5Jxf-")]//button',
+                    '//button[contains(., "Accept all")]',
+                    '//button[contains(translate(., "ACEPT L", "acept l"), "accept all")]'
+                ]:
+                    try:
+                        # CSS selector first
+                        if not selector.startswith('//'):
+                            elements = self.driver.eles(selector)
+                        else:
+                            # XPath if selector starts with //
+                            elements = self.driver.eles(selector, mode='xpath')
+                        
+                        if elements:
+                            for element in elements[:3]:  # Only try first 3 matches
+                                try:
+                                    element.click()
+                                    self.logger.info(f"Clicked Google consent button using selector: {selector}")
+                                    time.sleep(1.5)  # Longer wait for Google consent
+                                    return True
+                                except Exception as e:
+                                    self.logger.debug(f"Failed to click element with selector {selector}: {str(e)}")
+                                    continue
+                    except Exception as e:
+                        self.logger.debug(f"Error finding elements with selector '{selector}': {str(e)}")
+                        continue
+                
+                # try Js click on any potential consent button
+                try:
+                    result = self.driver.run_js('''
+                        const buttons = document.querySelectorAll('button');
+                        for (const button of buttons) {
+                            if (button.innerText.toLowerCase().includes('accept') || 
+                                button.innerText.toLowerCase().includes('agree') ||
+                                button.innerText.toLowerCase().includes('consent')) {
+                                button.click();
+                                return true;
+                            }
+                        }
+                        return false;
+                    ''')
+                    if result:
+                        self.logger.info("Clicked consent button using JavaScript")
+                        time.sleep(1.5)
+                        return True
+                except Exception as e:
+                    self.logger.debug(f"Error clicking with JavaScript: {str(e)}")
+            
+            # Generic consent handling 
             common_texts = ['accept all', 'i accept', 'accept cookies', 'agree', 'got it', 'ok', 'allow']
             
-            # Try to find buttons with these texts
             for text in common_texts:
                 try:
                     # Find any clickable element containing this text
                     elements = self.driver.eles(f'button:contains("{text}")')
                     
                     if elements:
-                        for element in elements[:3]:  # Only try the first 3 matches
+                        for element in elements[:3]:  # Only try first 3 matches
                             try:
                                 element.click()
                                 self.logger.info(f"Clicked cookie consent with text: {text}")
-                                time.sleep(0.5)  # Short wait after clicking
+                                time.sleep(0.5) 
                                 return True
                             except:
                                 continue

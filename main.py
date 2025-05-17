@@ -95,23 +95,20 @@ async def shutdown_event():
     """Application shutdown event handler - clean up resources"""
     print("TruthTracer API shutting down, cleaning up resources...")
     
-    # Clean up news processor and associated resources
+    # Cleanup resources
     try:
         news_processor.cleanup()
         print("Successfully cleaned up NewsProcessor resources")
     except Exception as e:
         print(f"Error cleaning up NewsProcessor: {str(e)}")
     
-    # Clean up scraping controller resources if still needed
     try:
         scraping_controller.cleanup()
         print("Successfully cleaned up ScrapingController resources")
     except Exception as e:
         print(f"Error cleaning up ScrapingController: {str(e)}")
     
-    # Clean up GoogleSearchScraper resources (singleton)
     try:
-        # Get singleton instance if it exists
         google_scraper = GoogleSearchScraper()
         google_scraper.cleanup()
         print("Successfully cleaned up GoogleSearchScraper resources")
@@ -171,18 +168,11 @@ async def process_url_async(analysis_id: str, url: str, max_references: int = 3,
         analysis_store[analysis_id]["complete"] = True
         set_current_analysis_id(None)
         
-        # Clean up resources used by this analysis task
         try:
             google_scraper = GoogleSearchScraper()
             if hasattr(google_scraper, '_dynamic_scraper') and google_scraper._dynamic_scraper is not None:
-                # Create a temporary copy of the dynamic scraper reference
-                temp_scraper = google_scraper._dynamic_scraper
-                
-                # Remove the reference in the scraper instance
-                google_scraper._dynamic_scraper = None
-                
-                temp_scraper.cleanup()
-                print(f"Cleaned up dynamic scraper resources for analysis {analysis_id}")
+                google_scraper.cleanup()
+                print(f"Cleaned up scraper resources for analysis {analysis_id}")
         except Exception as e:
             print(f"Error cleaning up resources for analysis {analysis_id}: {str(e)}")
 

@@ -83,12 +83,13 @@ class ScrapingController:
             self.log(f"Traceback: {traceback.format_exc()}", level='error')
             return None
 
-    def search_for_articles(self, query: str, days_old: int = 7, num_results: int = 10, publish_date: str = None) -> List[Dict[str, str]]:
+    def search_for_articles(self, query: str, original_url: str = None, days_old: int = 7, num_results: int = 10, publish_date: str = None) -> List[Dict[str, str]]:
         """
         Search for news articles (delegates to ScrapingPipeline)
         
         Args:
             query: The search query
+            original_url: URL to exclude from results (same domain will be filtered)
             days_old: How many days old the articles can be (default: 7)
             num_results: Maximum number of results to return
             publish_date: Publication date of the article being analysed (optional)
@@ -97,8 +98,17 @@ class ScrapingController:
             List of dictionaries containing article information
         """
         self.log(f"Searching for articles with query: {query}, days_old: {days_old}")
+        if original_url:
+            self.log(f"Will exclude results matching domain of original URL: {original_url}")
+            
         try:
-            results = self.pipeline.search_for_articles(query, days_old=days_old, num_results=num_results, publish_date=publish_date)
+            results = self.pipeline.search_for_articles(
+                query=query, 
+                original_url=original_url,
+                days_old=days_old, 
+                num_results=num_results, 
+                publish_date=publish_date
+            )
             self.log(f"Found {len(results)} articles")
             return results
         except Exception as e:
@@ -113,19 +123,6 @@ class ScrapingController:
         before application shutdown.
         """
         self.log("Cleaning up ScrapingController resources")
-        
-        # Clean up pipeline resources if available
-        if hasattr(self, 'pipeline'):
-            try:
-                # Clean up pipeline dynamic scraper
-                if hasattr(self.pipeline, 'dynamic_scraper'):
-                    try:
-                        self.pipeline.dynamic_scraper.cleanup()
-                        self.log("Successfully cleaned up pipeline dynamic scraper")
-                    except Exception as e:
-                        self.log(f"Error cleaning up pipeline dynamic scraper: {str(e)}", level='error')
-            except Exception as e:
-                self.log(f"Error accessing pipeline resources: {str(e)}", level='error')
         
         # Clean up google scraper if initialised
         if hasattr(self, '_google_scraper') and self._google_scraper is not None:

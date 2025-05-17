@@ -336,21 +336,19 @@ class ScrapingPipeline:
                 raise ValueError("Dynamic scraping failed to return content")
                 
             # Handle cookie consent 
-            # When taken out, even if a cookie consent page was detected it would still give me back the page content
-            # So I'm just going to leave this out for now
-            """cookie_handled = self.dynamic_scraper.check_for_cookie_consent()
+            cookie_handled = self.dynamic_scraper.check_for_cookie_consent()
             if cookie_handled:
                 self.log("Detected and handled cookie consent page")
                 # After handling cookies, get updated page content
                 time.sleep(2)  # Wait for page to update after consent
-                soup = self.dynamic_scraper.get_page_soup()"""
+                soup = self.dynamic_scraper.get_page_soup()
 
             # Store the soup in context
             context['soup'] = soup
             html_size = len(str(soup))
             self.log(f"Dynamic scraping returned content of size: {html_size} bytes")
             
-            return {'success': True, 'html_size': html_size, 'cookie_handled': False}
+            return {'success': True, 'html_size': html_size, 'cookie_handled': cookie_handled}
             
         except Exception as e:
             self.log(f"Error during dynamic scraping: {str(e)}", level='error')
@@ -570,12 +568,13 @@ class ScrapingPipeline:
             self.log("Pipeline completed but content validation failed", level='warning')
             return None
             
-    def search_for_articles(self, query: str, days_old: int = 7, num_results: int = 10, publish_date: str = None) -> List[Dict[str, str]]:
+    def search_for_articles(self, query: str, original_url: str = None, days_old: int = 7, num_results: int = 10, publish_date: str = None) -> List[Dict[str, str]]:
         """
         Search for news articles (delegates to GoogleSearchScraper)
         
         Args:
             query: The search query
+            original_url: URL to exclude from results (same domain will be filtered)
             days_old: How many days old the articles can be (default: 7)
             num_results: Maximum number of results to return
             publish_date: Publication date of the article being analysed (optional)
@@ -584,8 +583,15 @@ class ScrapingPipeline:
             List of dictionaries containing article information
         """
         self.log(f"Searching for articles with query: {query}, days_old: {days_old}")
+            
         try:
-            results = self.google_scraper.search_news(query, num_results=num_results, days_old=days_old, publish_date=publish_date)
+            results = self.google_scraper.search_news(
+                query=query,
+                original_url=original_url,
+                num_results=num_results, 
+                days_old=days_old, 
+                publish_date=publish_date
+            )
             self.log(f"Found {len(results)} articles")
             return results
         except Exception as e:

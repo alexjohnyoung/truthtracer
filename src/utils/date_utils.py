@@ -191,10 +191,21 @@ def calculate_search_date_params(publish_date: Optional[str], days_old: int = 7)
     article_date = parse_article_date(publish_date)
     
     if article_date:
-        # Create a window of 7 days before to 30 days after
-        start_date = article_date - timedelta(days=7)
-        # Calculate end date (30 days after article publication)
-        end_date = article_date + timedelta(days=30)
+        # Check how recent the article is
+        now = datetime.now()
+        days_since_publication = (now - article_date).days
+        
+        # For very recent articles (within 7 days), use a wider window
+        if days_since_publication <= 7:
+            # Start from 14 days before current date to capture most recent news
+            start_date = now - timedelta(days=14)
+            # End at current date plus 1 day to include everything up to now
+            end_date = now + timedelta(days=1)
+        else:
+            # For older articles, create a window of 14 days before to 30 days after
+            start_date = article_date - timedelta(days=14)
+            # Calculate end date (30 days after article publication)
+            end_date = article_date + timedelta(days=30)
             
         # Format dates as MM/DD/YYYY
         date_min = f"{start_date.month}/{start_date.day}/{start_date.year}"
@@ -207,9 +218,9 @@ def calculate_search_date_params(publish_date: Optional[str], days_old: int = 7)
         if days_old <= 1:
             params['tbs'] = 'qdr:w'  # Last week instead of just one day
         elif days_old <= 7:
-            params['tbs'] = 'qdr:m'  # Last month instead of just one week
+            params['tbs'] = 'qdr:m1'  # Last month instead of just one week
         elif days_old <= 31:
-            params['tbs'] = 'qdr:m'  # Last month
+            params['tbs'] = 'qdr:m3'  # Last 3 months
         else:
             params['tbs'] = 'qdr:y'  # Last year
     

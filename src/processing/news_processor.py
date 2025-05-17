@@ -439,7 +439,9 @@ class NewsProcessor:
             self.logger.info(f"Searching for reference articles with query: {query}, max_references={max_references}")
             reference_results = self.scraping_controller.search_for_articles(
                 query=query, 
+                original_url=url,
                 num_results=max_references,
+                days_old=days_old,
                 publish_date=metadata.get('publishDate')
             )
             
