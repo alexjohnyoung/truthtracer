@@ -7,6 +7,7 @@ from src.utils.status import update_status
 from src.scraping.controller import ScrapingController
 from src.processing.text_cleaner import TextCleaner
 from src.google.google import GoogleSearchScraper
+from src.utils.date_utils import format_date_for_display
 
 class NewsProcessor:
     """
@@ -166,56 +167,46 @@ class NewsProcessor:
             # Extract just the reference data objects
             ref_articles = [ref_data for ref_data, _ in valid_refs]
             
-            # Run the cross-reference analysis with retry logic
-            max_retries = 2  # Allow 2 retries
-            for attempt in range(max_retries + 1):
-                try:
-                    self.logger.info(f"Analysing misleading content across {len(ref_articles)} reference articles (attempt {attempt+1}/{max_retries+1})")
-                    
-                    result = await b.AnalyseMisleadingContent(
-                        article=article_data,
-                        referenceArticles=ref_articles,
-                        mainTitle=main_title,
-                        referenceTitles=ref_titles
-                    )
-                    
-                    # Validate the result has the expected fields
-                    if not hasattr(result, 'isMisleading') or not hasattr(result, 'explanation'):
-                        if attempt < max_retries:
-                            self.logger.warning(f"Invalid response format on attempt {attempt+1}, retrying...")
-                            continue
-                        else:
-                            self.logger.error("Maximum retries reached with invalid response format")
-                            return None, None
-                    
-                    return result, {
+            # Run the cross-reference analysis
+            try:
+                self.logger.info(f"Analysing misleading content across {len(ref_articles)} reference articles")
+                
+                result = await b.AnalyseMisleadingContent(
+                    article=article_data,
+                    referenceArticles=ref_articles,
+                    mainTitle=main_title,
+                    referenceTitles=ref_titles
+                )
+                
+                # Validate the result has the expected fields
+                if not hasattr(result, 'isMisleading') or not hasattr(result, 'explanation'):
+                    self.logger.error("Invalid response format")
+                    return None, None
+                
+                return result, {
+                    "mainTitle": main_title,
+                    "refTitles": ref_titles,
+                    "refCount": len(ref_articles)
+                }
+                
+            except Exception as e:
+                if "BamlValidationError" in str(e) or "Failed to parse LLM response" in str(e):
+                    self.logger.error(f"LLM parsing error: {str(e)}")
+                    # Return a fallback "neutral" result instead of None
+                    fallback_result = type('MisleadingAnalysisFallback', (), {
+                        'isMisleading': None,
+                        'reasons': ["AI analysis format error"],
+                        'explanation': "Our AI had trouble analysing this article. This doesn't mean the article is misleading - just that our system couldn't properly evaluate it."
+                    })()
+                    return fallback_result, {
                         "mainTitle": main_title,
                         "refTitles": ref_titles,
-                        "refCount": len(ref_articles)
+                        "refCount": len(ref_articles),
+                        "analysis_error": str(e)
                     }
-                    
-                except Exception as e:
-                    if "BamlValidationError" in str(e) or "Failed to parse LLM response" in str(e):
-                        if attempt < max_retries:
-                            self.logger.warning(f"LLM parsing error on attempt {attempt+1}, retrying: {str(e)}")
-                            continue
-                        else:
-                            self.logger.error(f"Maximum retries reached with LLM parsing errors: {str(e)}")
-                            # Return a fallback "neutral" result instead of None
-                            fallback_result = type('MisleadingAnalysisFallback', (), {
-                                'isMisleading': None,
-                                'reasons': ["AI analysis format error"],
-                                'explanation': "Our AI had trouble analysing this article. This doesn't mean the article is misleading - just that our system couldn't properly evaluate it."
-                            })()
-                            return fallback_result, {
-                                "mainTitle": main_title,
-                                "refTitles": ref_titles,
-                                "refCount": len(ref_articles),
-                                "analysis_error": str(e)
-                            }
-                    
-                    self.logger.error(f"Error in cross-reference analysis: {str(e)}")
-                    return None, None
+                
+                self.logger.error(f"Error in cross-reference analysis: {str(e)}")
+                return None, None
                 
         except Exception as e:
             self.logger.error(f"Error setting up cross-reference: {str(e)}")
@@ -238,7 +229,7 @@ class NewsProcessor:
         }
         
         reference_analyses = []
-
+ 
         total_refs = len(reference_results)
         
         for idx, ref in enumerate(reference_results):
@@ -269,7 +260,6 @@ class NewsProcessor:
             
             try:
                 # Scrape and process reference article
-              
                 update_status(f"Scraping reference {idx+1}: {extract_domain(ref_url)}", 
                                 progress, "Reference Scraping", 4)
                 
@@ -308,6 +298,9 @@ class NewsProcessor:
                 if ref_content:
                     self._merge_metadata(base_metadata, ref_content)
                 
+                # Format the publication date for display
+                formatted_date = format_date_for_display(base_metadata.get('publishDate', ''))
+                
                 # Add to reference analyses for cross-referencing
                 reference_analyses.append((ref_analysis, base_metadata))
                 
@@ -319,7 +312,7 @@ class NewsProcessor:
                     "url": ref_url,
                     "headline": base_metadata.get('headline', ref.get('title', 'Unknown Title')),
                     "source": extract_domain(ref_url),
-                    "publishDate": base_metadata.get('publishDate'),
+                    "publishDate": formatted_date,
                     "author": base_metadata.get('author', 'Unknown'),
                     "analysis": {
                         "claims": getattr(ref_analysis, 'claims', []),
@@ -363,12 +356,15 @@ class NewsProcessor:
         Returns:
             Complete analysis result dictionary
         """
+        # Format the publication date
+        formatted_publish_date = format_date_for_display(metadata.get('publishDate', ''))
+        
         result = {
             'url': url,
             'article': {
                 'headline': metadata.get('headline', ''),
                 'author': metadata.get('author', ''),
-                'publishDate': metadata.get('publishDate', ''),
+                'publishDate': formatted_publish_date,
                 'claims': getattr(article_analysis, 'claims', []),
                 'summary': getattr(article_analysis, 'summary', '')
             },

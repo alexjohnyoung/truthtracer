@@ -173,6 +173,31 @@ def _try_date_formats(first: int, second: int, year: int) -> Optional[datetime]:
     return _create_date(year, second, first)
 
 
+def format_date_for_display(date_str: Optional[str]) -> str:
+    """
+    Format a date string for display by removing the time component.
+    
+    Args:
+        date_str: Date string in any format
+        
+    Returns:
+        Formatted date string (YYYY-MM-DD) or the original string if parsing fails
+    """
+    if not date_str:
+        return ""
+        
+    # Check if the date has a 'T' character (ISO format with time)
+    if 'T' in date_str:
+        # Try to parse and reformat the date
+        dt = parse_article_date(date_str)
+        if dt:
+            # Return just the date part in YYYY-MM-DD format
+            return dt.strftime('%Y-%m-%d')
+    
+    # If no 'T' or parsing fails, return the original string
+    return date_str
+
+
 def calculate_search_date_params(publish_date: Optional[str], days_old: int = 7) -> Dict[str, str]:
     """
     Calculate date parameters for search, using a wider window to find more related articles.

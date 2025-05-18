@@ -339,8 +339,8 @@ class ScrapingPipeline:
             cookie_handled = self.dynamic_scraper.check_for_cookie_consent()
             if cookie_handled:
                 self.log("Detected and handled cookie consent page")
-                # After handling cookies, get updated page content
-                time.sleep(2)  # Wait for page to update after consent
+                # Now get updated page content
+                time.sleep(2)  
                 soup = self.dynamic_scraper.get_page_soup()
 
             # Store the soup in context
