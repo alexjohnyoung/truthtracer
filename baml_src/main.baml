@@ -16,7 +16,7 @@ class CleanedArticle {
 }
 
 function ExtractArticleInfo(articleText: string) -> ArticleAnalysis {
-    client "Gemma"
+    client "Mistral"
     prompt #"
     Extract key information from this news article. You must return EXACTLY this JSON format with no deviations:
     {
@@ -43,9 +43,9 @@ function AnalyseMisleadingContent(
   mainTitle: string,
   referenceTitles: string[]
 ) -> MisleadingAnalysis {
-  client "Gemma"
+  client "Mistral"
   prompt #"
-    Compare the main article with reference articles and determine if it's misleading.
+    Compare the main article with reference articles and conclusively determine if it's misleading.
     
     Main article:
     Title: {{ mainTitle }}
@@ -73,14 +73,14 @@ function AnalyseMisleadingContent(
       "isMisleading": true/false,
       "confidence": 0.0-1.0,
       "reasons": ["Reason 1", "Reason 2"],
-      "explanation": "Brief explanation of the assessment"
+      "explanation": "Concise explanation of the assessment"
     }
     ```
   "#
 }
 
 function CleanArticleText(articleText: string) -> CleanedArticle {
-  client "Gemma"
+  client "Mistral"
   prompt #"
     You are an AI that VERY AGGRESSIVELY cleans news articles by removing ALL noise.
 

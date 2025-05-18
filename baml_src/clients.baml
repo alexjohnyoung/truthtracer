@@ -1,4 +1,4 @@
-client<llm> Gemma {
+client<llm> Mistral {
   provider ollama
 
   options {

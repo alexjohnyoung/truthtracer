@@ -160,16 +160,6 @@ class GoogleSearchScraper:
             publish_date: Publication date of the article being analysed (optional)
         """
         try:
-            # Enhanced logging and validation for the original_url parameter
-            if original_url:
-                self.logger.info(f"Search will filter results from domain of original URL: {original_url}")
-                original_domain = extract_domain(original_url)
-                self.logger.info(f"Original domain extracted: {original_domain}")
-                if not original_domain:
-                    self.logger.warning(f"Could not extract domain from original URL: {original_url} - domain filtering may not work")
-            else:
-                self.logger.info("No original URL provided - domain filtering won't be applied")
-                
             # Check if query already contains date-specific information
             has_date_in_query = any(term in query for term in ["date:", "before:", "after:"])
             
@@ -222,7 +212,7 @@ class GoogleSearchScraper:
             
             # Skip if same URL or same domain
             if norm_result_url == norm_original_url or result_domain == original_domain:
-                self.logger.info(f"Filtering out result {result_url} - matches original URL or domain")
+                #self.logger.info(f"Filtering out result {result_url} - matches original URL or domain")
                 continue
                 
             filtered_results.append(result)
@@ -269,6 +259,11 @@ class GoogleSearchScraper:
                 
                 if soup:
                     results = self._extract_results(soup, original_url, num_results)
+
+                    # We can close the browser now
+                    if hasattr(self, '_dynamic_scraper') and self._dynamic_scraper is not None:
+                        self._dynamic_scraper.cleanup()
+                        self.logger.info("DynamicScraper browser closed after search")
                     return results
                 else:
                     self.logger.warning(f"Dynamic scraping returned no content")
@@ -277,10 +272,19 @@ class GoogleSearchScraper:
             
             # If we get here, all dynamic scraping attempts failed
             self.logger.error("All dynamic scraping attempts failed")
+
+            # Ensure cleanup in case of failure
+            if hasattr(self, '_dynamic_scraper') and self._dynamic_scraper is not None:
+                self._dynamic_scraper.cleanup()
+                self.logger.info("DynamicScraper browser closed after failed search")
             return []
                 
         except Exception as e:
             self.logger.error(f"Error in search: {str(e)}")
+            # Ensure cleanup in case of error
+            if hasattr(self, '_dynamic_scraper') and self._dynamic_scraper is not None:
+                self._dynamic_scraper.cleanup()
+                self.logger.info("DynamicScraper browser closed after search error")
             return []
             
     def _build_search_url(self, query: str, num_results: int, days_old: int, 
@@ -372,13 +376,9 @@ class GoogleSearchScraper:
         original_url_info = self._get_original_url_info(original_url)
         original_domain = original_url_info.get('domain') if original_url_info else None
         
-        # Enhanced logging for debugging domain filtering
-        self.logger.info(f"Original URL: {original_url}")
-        self.logger.info(f"Original domain extracted: {original_domain}")
-        
         # Set to track URLs we've already processed to avoid duplicates
         processed_urls = set()
-    
+
         try:
             # Find all elements with data-news attributes 
             news_items = soup.find_all(lambda tag: tag.name == 'div' and tag.has_attr('data-news-cluster-id'))
@@ -422,15 +422,6 @@ class GoogleSearchScraper:
                     if self._should_skip_url(url, original_url_info, processed_urls):
                         continue
 
-                    # Check if the domain matches the original article's domain
-                    if original_domain:
-                        current_domain = extract_domain(url)
-                        self.logger.info(f"Comparing domains - Result URL: {url}, Domain: {current_domain}, Original Domain: {original_domain}")
-                        if current_domain == original_domain:
-                            self.logger.info(f"FILTERED: Skipping URL from same domain as original article: {url}")
-                            continue
-                    
-                    # Find the title
                     title = ""
                     
                     # Check for heading roles 
@@ -501,11 +492,10 @@ class GoogleSearchScraper:
         if url in processed_urls:
             return True
             
-        # Skip if this is the original URL using normalised comparison
         if original_url_info:
-            url_normalised = normalise_url(url)
-            if url_normalised == original_url_info['normalised_url']:
-                self.logger.info(f"Skipping URL - same as original article: {url}")
+            # Skip if the domain matches the original article's domain
+            current_domain = extract_domain(url)
+            if current_domain == original_url_info['domain']:
                 return True
                 
         # Skip unwanted domains - blacklist
@@ -515,9 +505,11 @@ class GoogleSearchScraper:
             'policies.google.com' 
         ]
         
-        if any(domain in url.lower() for domain in blacklisted_domains):
-            self.logger.info(f"Skipping blacklisted domain: {url}")
-            return True
+        url_lower = url.lower()
+        for domain in blacklisted_domains:
+            if domain in url_lower:
+                self.logger.info(f"Skipping blacklisted domain: {url}")
+                return True
             
         return False
 

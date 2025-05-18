@@ -1,11 +1,5 @@
-"""
-Text cleaning utility for web scraping content.
-
-This module provides utilities for cleaning and normalising text content 
-extracted from web pages, removing noise, and standardising formatting.
-"""
-
 import re
+import os
 from baml_client.async_client import b
 from src.utils.logging_utils import get_logger
 
@@ -19,6 +13,9 @@ class TextCleaner:
     
     def __init__(self):
         """Initialise the text cleaner with common patterns"""
+        # Configure logging
+        self.logger = get_logger(__name__)
+        
         # Regex patterns for noise removal
         self.email_pattern = re.compile(r'\S+@\S+\.\S+')
         self.url_pattern = re.compile(r'https?://\S+')
@@ -33,9 +30,6 @@ class TextCleaner:
         self.subscribe_pattern2 = re.compile(r'(?i)subscribe for.*?(?:free|email|newsletter)')
         self.navigation_pattern = re.compile(r'(?i)menu|home|about us|contact|search')
         self.ad_pattern = re.compile(r'(?i)advertisement|sponsored|promoted content')
-        
-        # Configure logging
-        self.logger = get_logger(__name__)
         
     def clean_content(self, text: str) -> str:
         """
@@ -187,7 +181,15 @@ class TextCleaner:
         if not text or len(text.strip()) == 0:
             return ""
                 
-        # Clean the article text - no retries
+        # Check if LLM cleaning should be skipped
+        skip_env = os.environ.get('SKIP_LLM_CLEANING', 'false').strip().lower()
+        skip_llm_cleaning = skip_env in ('true', '1', 'yes', 't')
+        
+        if skip_llm_cleaning:
+            logger.info(f"Skipping LLM cleaning due to SKIP_LLM_CLEANING={skip_env}")
+            return text
+                
+        # Clean the article text
         try:
             logger.info(f"Using LLM to clean article text of length {len(text)}")
             result = await b.CleanArticleText(text)

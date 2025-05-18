@@ -99,7 +99,7 @@ class MetadataExtractor:
             
         if len(missing_fields) > 0:
             self.logger.info(f"Primary extraction failed for: {', '.join(missing_fields)}. Using NER fallback")
-            # Extract text for NER processing (only once)
+            # Extract text for NER processing
             text_for_ner = self._extract_text_for_ner(soup)
             
             # Only process with NER if we have text and the NLP model

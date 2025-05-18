@@ -11,7 +11,7 @@ const UIHandlers = {
         // Get status data
         const progress = data.status.progress || 0;
         const message = data.status.message || 'Processing...';
-        const stepNameText = data.status.step_name || 'Processing';
+        const stepNameText = data.status.step_name || '';
         
         // Update progress bar
         progressBar.style.width = `${progress}%`;
@@ -33,7 +33,11 @@ const UIHandlers = {
         }
         
         // Update step name
-        stepName.innerHTML = `<span class="fw-bold">${stepNameText}:</span> ${message}`;
+        if (stepNameText !== '') {
+            stepName.innerHTML = `<span class="fw-bold">${stepNameText}:</span> ${message}`;
+        } else {
+            stepName.innerHTML = `<span class="fw-bold">${message}</span>`;
+        }
         
         // Update page title
         document.title = `${progress}% | TruthTracer`;

@@ -1,10 +1,3 @@
-"""
-Content extraction module for news articles.
-
-This module extracts article content from HTML pages using simple
-fallback strategies for different news site layouts.
-"""
-
 import re
 from bs4 import BeautifulSoup
 from typing import Dict, List
@@ -12,7 +5,10 @@ from src.utils.logging_utils import get_logger
 from src.utils.text_utils import extract_domain
 
 class ContentExtractor:
-    """Extract article content from HTML using a simple set of strategies."""
+    """
+    This module extracts article content from HTML pages using simple
+    fallback strategies for different news site layouts.
+    """
     
     def __init__(self, logger=None):
         """Initialise with optional logger."""
@@ -56,12 +52,7 @@ class ContentExtractor:
         if self._is_valid_content(content):
             return content
             
-        # Strategy 2: Article-related classes and IDs
-        content = self._extract_by_article_patterns(soup)
-        if self._is_valid_content(content):
-            return content
-            
-        # Strategy 3: Paragraph collection (fallback)
+        # Strategy 2: Paragraph collection
         return self._extract_by_paragraphs(soup)
     
     def _is_valid_content(self, content: str, min_length: int = 300) -> bool:
@@ -88,29 +79,6 @@ class ContentExtractor:
         
         return ""
     
-    def _extract_by_article_patterns(self, soup: BeautifulSoup) -> str:
-        """Extract content by finding elements with article-related classes/IDs."""
-        for pattern in self.article_patterns:
-            # Find elements with matching class or id
-            elements = soup.find_all(attrs={
-                "class": lambda c: c and re.search(pattern, str(c), re.IGNORECASE) if c else False,
-                "id": lambda i: i and re.search(pattern, str(i), re.IGNORECASE) if i else False
-            })
-            
-            clean_elements = self._filter_noise_elements(elements)
-            
-            if clean_elements:
-                # Sort by length if multiple elements found
-                if len(clean_elements) > 1:
-                    clean_elements.sort(key=lambda e: len(e.text.strip()), reverse=True)
-                
-                content = clean_elements[0].text.strip()
-                if content:
-                    self.logger.debug(f"Found {len(content)} chars using pattern '{pattern}'")
-                    return content
-        
-        return ""
-    
     def _extract_by_paragraphs(self, soup: BeautifulSoup) -> str:
         """Extract content by collecting all substantial paragraphs."""
         # Only include paragraphs with substantial content (40+ chars)
@@ -118,6 +86,7 @@ class ContentExtractor:
             p.text.strip() for p in soup.find_all('p') 
             if len(p.text.strip()) > 40
         ]
+        print(f"Found {len(paragraphs)} paragraphs")
         
         if paragraphs:
             content = '\n\n'.join(paragraphs)

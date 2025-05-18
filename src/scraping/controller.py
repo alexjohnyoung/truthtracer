@@ -1,14 +1,7 @@
-"""
-Scraping controller module for news article content retrieval.
-
-This module orchestrates the scraping process, making intelligent decisions about
-whether to use static or dynamic scraping approaches based on site characteristics,
-content analysis, and predefined rules.
-"""
-
 import logging
 import time
 import traceback
+import os
 from typing import Dict, Optional, Set, List
 
 from src.utils.logging_utils import get_logger
@@ -24,8 +17,15 @@ class ScrapingController:
     
     def __init__(self):
         """Initialise the scraping controller"""
-        # Use the pipeline architecture
-        self.pipeline = ScrapingPipeline()
+        # Get configuration from environment variables
+        self.scraping_timeout = int(os.environ.get('SCRAPING_TIMEOUT', 30))
+        self.max_retries = int(os.environ.get('MAX_RETRIES', 3))
+        
+        # Use the pipeline architecture with config from environment
+        self.pipeline = ScrapingPipeline(
+            timeout=self.scraping_timeout,
+            max_retries=self.max_retries
+        )
         
         # Configure logging using the centralized utility
         self.logger = get_logger(__name__)
@@ -62,6 +62,7 @@ class ScrapingController:
             Dictionary containing scraped content or None if scraping failed
         """
         self.log(f"Starting content scraping for URL: {url}")
+        self.log(f"Using scraping_timeout={self.scraping_timeout}s, max_retries={self.max_retries}")
         
         start_time = time.time()
         

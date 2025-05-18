@@ -1,15 +1,11 @@
 from typing import Optional, Dict
 from urllib.parse import urlparse
 import time
-import re
-import json
+
 
 from DrissionPage import ChromiumPage, ChromiumOptions
 from bs4 import BeautifulSoup
 from .base import BaseScraper
-from src.processing.content_extractor import ContentExtractor
-from src.processing.metadata_extractor import MetadataExtractor
-from src.utils.text_utils import extract_domain, clean_title_from_headline
 
 class DynamicScraper(BaseScraper):
     def __init__(self, timeout: int = 30):

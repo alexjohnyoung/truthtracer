@@ -1,10 +1,6 @@
-"""
-Domain-specific rules and configurations for web scraping.
-Planning to add more rules here in the future
-"""
-
 class DomainRules:
     # Blocked domains that we don't want to scrape
+    # Usually because of video content
     BLOCKED_DOMAINS = {
         'msn.com',  
         'msnbc.com', 

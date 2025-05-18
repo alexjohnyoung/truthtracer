@@ -10,9 +10,14 @@ This FastAPI application provides endpoints for analysing news articles by:
 The application uses asynchronous processing with a RESTful API architecture.
 """
 
+# Import and load environment variables first
+from dotenv import load_dotenv
+load_dotenv()
+
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Any
+import os
 
 # Uvicorn
 import uvicorn
@@ -53,7 +58,7 @@ class StatusResponse(BaseModel):
     """Model for status information"""
     progress: int = Field(..., description="Analysis progress percentage (0-100)")
     message: str = Field(..., description="Current status message")
-    step_name: str = Field("Processing", description="Name of the current processing step")
+    step_name: str = Field("", description="Name of the current processing step")
     step: int = Field(0, description="Current step number")
 
 class AnalysisStartResponse(BaseModel):
@@ -138,8 +143,6 @@ async def process_url_async(analysis_id: str, url: str, max_references: int = 3,
     analysis_store[analysis_id]["success"] = False
     
     try:
-        update_status("Processing main article content", 15, "Article Analysis", 3)
-        
         # Start article analysis 
         result = await news_processor.analyse_article(url, max_references=max_references, days_old=days_old)
         

@@ -1,11 +1,3 @@
-"""
-Pipeline architecture for web scraping operations.
-
-This module implements a flexible scraping pipeline that orchestrates the entire
-scraping process through stages. The pipeline provides centralised
-error handling, retry logic, and a unified interface for the scraping system.
-"""
-
 import logging
 import time
 import traceback
@@ -113,14 +105,24 @@ class PipelineStage:
 
 class ScrapingPipeline:
     """
-    A flexible pipeline for orchestrating the content scraping process.
-    Manages the flow between different scraping stages with error handling.
+    Pipeline architecture for web scraping operations.
+    Orchestrates the entire scraping process through stages. 
     """
     
-    def __init__(self):
-        """Initialise the pipeline with all required components"""
+    def __init__(self, timeout: int = 30, max_retries: int = 3):
+        """
+        Initialise the pipeline with all required components
+        
+        Args:
+            timeout: Timeout in seconds for scraping operations
+            max_retries: Maximum number of retries for scraping operations
+        """
+        # Store configuration parameters
+        self.timeout = timeout
+        self.max_retries = max_retries
+        
         # Set up components
-        self.static_scraper = StaticScraper()
+        self.static_scraper = StaticScraper(timeout=self.timeout)
         self.metadata_extractor = MetadataExtractor()
         self.content_extractor = ContentExtractor()
         self.text_cleaner = TextCleaner()
@@ -142,7 +144,7 @@ class ScrapingPipeline:
         """Lazy initialization property for DynamicScraper"""
         if self._dynamic_scraper is None:
             self.log("Initializing DynamicScraper")
-            self._dynamic_scraper = DynamicScraper()
+            self._dynamic_scraper = DynamicScraper(timeout=self.timeout)
         return self._dynamic_scraper
     
     @property
@@ -177,7 +179,7 @@ class ScrapingPipeline:
             name="static_scraping",
             processor=self._process_static_scraping,
             error_handler=self._handle_static_scraping_error,
-            retry_attempts=1
+            retry_attempts=min(1, self.max_retries)  # Use configured retry setting
         ))
         
         # Stage 3: Dynamic Scraping (conditional)
@@ -185,7 +187,7 @@ class ScrapingPipeline:
             name="dynamic_scraping",
             processor=self._process_dynamic_scraping,
             error_handler=self._handle_dynamic_scraping_error,
-            retry_attempts=2,
+            retry_attempts=min(2, self.max_retries),  # Use configured retry setting
             retry_delay=3
         ))
         
@@ -193,7 +195,7 @@ class ScrapingPipeline:
         self.stages.append(PipelineStage(
             name="content_extraction",
             processor=self._process_content_extraction,
-            retry_attempts=1
+            retry_attempts=min(1, self.max_retries)  # Use configured retry setting
         ))
         
         # Stage 5: Metadata Extraction

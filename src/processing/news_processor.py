@@ -239,7 +239,7 @@ class NewsProcessor:
             # Calculate progress based on current article index
             progress = 60 + int((idx / max(1, total_refs)) * 20)  # Progress from 60-80%
             update_status(f"Processing reference {idx+1}/{total_refs}: {ref_title}", 
-                            progress, "Reference Analysis", 4)
+                            progress, "", 4)
             
             if not ref_url:
                 processed_references["skipped"].append({
@@ -274,7 +274,7 @@ class NewsProcessor:
                     continue
               
                 update_status(f"Analysing reference {idx+1}: {ref_title}", 
-                                progress+1, "Reference Analysis", 4)
+                                progress+1, "", 4)
                 
                 ref_analysis = await self.process_article(ref_content['text'], is_main_article=False)
                 
@@ -322,7 +322,7 @@ class NewsProcessor:
                 
                
                 update_status(f"Successfully processed reference {idx+1}/{total_refs}", 
-                                 progress+2, "Reference Analysis", 4)
+                                 progress+2, "", 4)
                 
             except Exception as e:
                 self.logger.error(f"Error processing reference article {ref_url}: {str(e)}")
@@ -336,7 +336,7 @@ class NewsProcessor:
         success_count = len(processed_references["successful"])
         skipped_count = len(processed_references["skipped"])
         update_status(f"Completed reference processing: {success_count} successful, {skipped_count} skipped", 
-                        80, "Reference Analysis", 4)
+                        80, "", 4)
         
         return processed_references, reference_analyses
 
@@ -431,7 +431,10 @@ class NewsProcessor:
             query = self.get_search_query(headline)
             
             update_status(f"Searching for reference articles (max: {max_references})", 40, "Reference Search", 3)
-                
+            
+            # Add 1 to max_references to account for the original URL
+            max_references = max_references + 1
+
             self.logger.info(f"Searching for reference articles with query: {query}, max_references={max_references}")
             reference_results = self.scraping_controller.search_for_articles(
                 query=query, 
@@ -446,7 +449,7 @@ class NewsProcessor:
 
                 
             main_url = normalise_url(url) if url else ""
-            update_status("Processing reference articles", 60, "Reference Analysis", 4)
+            update_status("Processing reference articles", 60, "", 4)
 
             # Process reference articles
             processed_references, reference_analyses = await self.process_reference_articles(reference_results, main_url)

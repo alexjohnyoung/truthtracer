@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional
 analysis_store: Dict[str, Dict[str, Any]] = {}
 current_analysis_id = None
 
-def update_status(message: str, progress: int, step_name: str = "Processing", step: int = 0) -> None:
+def update_status(message: str, progress: int, step_name: str = "", step: int = 0) -> None:
     """
     Update the status of the current analysis
     
@@ -40,9 +40,6 @@ def update_status(message: str, progress: int, step_name: str = "Processing", st
         timestamp = datetime.now().strftime("%H:%M:%S")
         log_entry = f"[{timestamp}] {message}"
         analysis_store[current_analysis_id]["log_messages"].append(log_entry)
-        
-        # Print to console for debugging
-        print(f"Status update [{bounded_progress}%]: {message}")
 
 def set_current_analysis_id(analysis_id: Optional[str]):
     """Set the current analysis ID being processed"""

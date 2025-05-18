@@ -5,19 +5,24 @@ This module provides a consistent way to configure loggers across the applicatio
 """
 
 import logging
+import os
 
 
-def get_logger(name: str, level: str = 'INFO') -> logging.Logger:
+def get_logger(name: str, level: str = None) -> logging.Logger:
     """
     Create and configure a logger with consistent settings.
     
     Args:
         name: The name of the logger (typically the module name)
         level: The logging level ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL')
+               If None, uses the LOG_LEVEL from environment or defaults to 'INFO'
         
     Returns:
         A configured logger instance
     """
+    if not level:
+        level = os.environ.get('LOG_LEVEL', 'INFO')
+    
     level_map = {
         'DEBUG': logging.DEBUG,
         'INFO': logging.INFO,
