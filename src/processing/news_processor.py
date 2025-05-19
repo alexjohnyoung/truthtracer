@@ -304,9 +304,6 @@ class NewsProcessor:
                 # Add to reference analyses for cross-referencing
                 reference_analyses.append((ref_analysis, base_metadata))
                 
-                # Log the final publishDate for debugging
-                self.logger.info(f"Reference #{idx+1} final publishDate: {base_metadata.get('publishDate')}")
-                
                 # Add to successful references
                 processed_references["successful"].append({
                     "url": ref_url,

@@ -21,13 +21,11 @@ class ScrapingController:
         self.scraping_timeout = int(os.environ.get('SCRAPING_TIMEOUT', 30))
         self.max_retries = int(os.environ.get('MAX_RETRIES', 3))
         
-        # Use the pipeline architecture with config from environment
         self.pipeline = ScrapingPipeline(
             timeout=self.scraping_timeout,
             max_retries=self.max_retries
         )
-        
-        # Configure logging using the centralized utility
+
         self.logger = get_logger(__name__)
         self.tag = "[Controller]"
         
@@ -119,20 +117,15 @@ class ScrapingController:
     def cleanup(self):
         """
         Clean up all resources used by the controller and its dependencies.
-        
-        This should be called when the controller is no longer needed or
-        before application shutdown.
         """
         self.log("Cleaning up ScrapingController resources")
         
-        # Clean up google scraper if initialised
-        if hasattr(self, '_google_scraper') and self._google_scraper is not None:
-            try:
-                self._google_scraper.cleanup()
-                self._google_scraper = None
-                self.log("Successfully cleaned up GoogleSearchScraper")
-            except Exception as e:
-                self.log(f"Error cleaning up GoogleSearchScraper: {str(e)}", level='error')
+        # Clean up pipeline resources 
+        try:
+            self.pipeline.cleanup()
+            self.log("Successfully cleaned up pipeline resources")
+        except Exception as e:
+            self.log(f"Error cleaning up pipeline: {str(e)}", level='error')
         
         self.log("ScrapingController cleanup completed")
     

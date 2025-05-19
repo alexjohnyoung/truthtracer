@@ -63,8 +63,6 @@ class GoogleSearchScraper:
         # Lazy loading for DynamicScraper
         self._dynamic_scraper = None
         self.is_dynamic_functional = True
-            
-        # Mark as initialised
         self.__class__._initialised = True
 
     @property
@@ -74,6 +72,8 @@ class GoogleSearchScraper:
             self.logger.info("Initialising DynamicScraper for GoogleSearchScraper")
             try:
                 self._dynamic_scraper = DynamicScraper(timeout=30)
+                self.is_dynamic_functional = True
+                self.logger.info("Successfully initialized DynamicScraper")
             except Exception as e:
                 self.logger.error(f"Failed to initialise DynamicScraper: {str(e)}")
                 self.is_dynamic_functional = False
@@ -132,8 +132,7 @@ class GoogleSearchScraper:
             self.logger.info(f"Using dynamic scraping for {url}")
             
             try:
-                # Use DynamicScraper's methods
-                soup = self.dynamic_scraper.get_page_content(url)
+                soup = self.dynamic_scraper.get_page_content(url, cleanup_after=True)
                 
                 if soup:
                     return self.dynamic_scraper.extract_content(soup, url)
@@ -239,54 +238,25 @@ class GoogleSearchScraper:
         try:
             # Build the search URL
             search_url = self._build_search_url(query, num_results, days_old, has_date_in_query, publish_date)
+            results = []
             
             try:
                 # Get page content using DynamicScraper
-                soup = self.dynamic_scraper.get_page_content(search_url)
+                soup = self.dynamic_scraper.get_page_content(search_url, cleanup_after=True)
                 
-                # Check if we're on a consent page
-                current_url = self.dynamic_scraper.driver.url
-                if 'consent.google.com' in current_url:
-                    self.logger.info("Detected Google consent page, attempting to handle it")
-                    cookie_handled = self.dynamic_scraper.check_for_cookie_consent()
-                    
-                    if cookie_handled:
-                        self.logger.info("Successfully handled Google consent page, getting updated content")
-                        time.sleep(2)  # Wait for redirect after consent
-                        soup = self.dynamic_scraper.get_page_soup()
-                    else:
-                        self.logger.warning("Failed to handle Google consent page")
-                
+                # Process the results if we have a valid soup object
                 if soup:
                     results = self._extract_results(soup, original_url, num_results)
-
-                    # We can close the browser now
-                    if hasattr(self, '_dynamic_scraper') and self._dynamic_scraper is not None:
-                        self._dynamic_scraper.cleanup()
-                        self.logger.info("DynamicScraper browser closed after search")
-                    return results
-                else:
-                    self.logger.warning(f"Dynamic scraping returned no content")
             except Exception as e:
                 self.logger.error(f"Error in dynamic scraping: {str(e)}")
+                self.logger.error("Dynamic scraping attempt failed")
             
-            # If we get here, all dynamic scraping attempts failed
-            self.logger.error("All dynamic scraping attempts failed")
-
-            # Ensure cleanup in case of failure
-            if hasattr(self, '_dynamic_scraper') and self._dynamic_scraper is not None:
-                self._dynamic_scraper.cleanup()
-                self.logger.info("DynamicScraper browser closed after failed search")
-            return []
+            return results
                 
         except Exception as e:
             self.logger.error(f"Error in search: {str(e)}")
-            # Ensure cleanup in case of error
-            if hasattr(self, '_dynamic_scraper') and self._dynamic_scraper is not None:
-                self._dynamic_scraper.cleanup()
-                self.logger.info("DynamicScraper browser closed after search error")
             return []
-            
+
     def _build_search_url(self, query: str, num_results: int, days_old: int, 
                          has_date_in_query: bool, publish_date: str) -> str:
         """
@@ -523,25 +493,20 @@ class GoogleSearchScraper:
         self.logger.info("Cleaning up GoogleSearchScraper resources")
         
         # Clean up DynamicScraper if it was initialised
-        if hasattr(self, '_dynamic_scraper') and self._dynamic_scraper is not None:
-            try:
-                self._dynamic_scraper.cleanup()
-                self._dynamic_scraper = None
-                self.logger.info("DynamicScraper resources released")
-            except Exception as e:
-                self.logger.error(f"Error cleaning up DynamicScraper: {str(e)}")
-            
-        # Reset dynamic scraper functionality flag
-        self.is_dynamic_functional = True
+        if self._dynamic_scraper is not None:
+            self._dynamic_scraper.cleanup()
+            self._dynamic_scraper = None
+            self.logger.info("DynamicScraper resources released")
         
         # Reset instance variables
         self.__class__._initialised = False
-        self.logger.info("GoogleSearchScraper cleanup completed successfully")
+        self.logger.info("GoogleSearchScraper cleanup completed")
 
     def __del__(self):
         """Clean up resources when the scraper is destroyed"""
         try:
             self.cleanup()
-        except:
+        except Exception as e:
+            # Should not log here as logger might be destroyed
             pass
 

@@ -71,23 +71,14 @@ const UIHandlers = {
             logMessages.appendChild(messageDiv);
         });
         
-        // Scroll to bottom
+        this.scrollLogToBottom();
+    },
+    
+    scrollLogToBottom() {
+        const logMessages = document.getElementById('logMessages');
         logMessages.scrollTop = logMessages.scrollHeight;
     },
 
-    // Update API status badge
-    updateApiStatusBadge(connected) {
-        const apiStatusBadge = document.getElementById('apiStatusBadge');
-        
-        if (connected) {
-            apiStatusBadge.textContent = 'API: Connected';
-            apiStatusBadge.className = 'badge bg-success me-2 api-status-badge';
-        } else {
-            apiStatusBadge.textContent = 'API: Disconnected';
-            apiStatusBadge.className = 'badge bg-danger me-2 api-status-badge';
-        }
-    },
-    
     // Reset UI for new analysis
     resetForNewAnalysis() {
         const statusSection = document.getElementById('statusSection');
@@ -95,6 +86,9 @@ const UIHandlers = {
         const logMessages = document.getElementById('logMessages');
         const progressBar = document.getElementById('progressBar');
         const stepName = document.getElementById('stepName');
+        
+        // Remove results-displayed class to make log container larger
+        document.body.classList.remove('results-displayed');
         
         statusSection.classList.remove('d-none');
         resultsSection.classList.add('d-none');
@@ -127,7 +121,7 @@ const UIHandlers = {
         
         messageDiv.textContent = message;
         logMessages.appendChild(messageDiv);
-        logMessages.scrollTop = logMessages.scrollHeight;
+        this.scrollLogToBottom();
     },
 
     // Update UI on analysis step change

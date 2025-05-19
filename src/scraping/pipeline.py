@@ -302,25 +302,26 @@ class ScrapingPipeline:
         """
         self.log(f"Static scraping error: {str(error)}", level='warning')
         
-        # Mark for dynamic scraping
+        # Mark static scraping as failed
         context['static_failed'] = True
-        context['requires_dynamic'] = True
+        
+        self.log("Will attempt dynamic scraping as fallback")
         
         # Continue with pipeline
         return True
         
     def _process_dynamic_scraping(self, context: Dict) -> Dict:
         """
-        Perform dynamic scraping if needed
+        Try dynamic scraping if static scraping fails or indicates JS is needed
         
         Args:
             context: Pipeline context
             
         Returns:
-            Dictionary with dynamic scraping results
+            Dictionary with scraping results
         """
-        # Only run if static failed or requires_dynamic flag is set
-        if not context.get('static_failed', False) and not context.get('requires_dynamic', False):
+        # Skip if static scraping was successful and doesn't require dynamic
+        if not context.get('static_failed', False):
             self.log("Skipping dynamic scraping as static was successful")
             context['dynamic_skipped'] = True
             return {'skipped': True}
@@ -331,26 +332,18 @@ class ScrapingPipeline:
 
         try:
             self.log(f"Getting page content for {url}")
-            soup = self.dynamic_scraper.get_page_content(url)
+            soup = self.dynamic_scraper.get_page_content(url, cleanup_after=True)
             
             if not soup:
                 self.log("Dynamic scraping failed to return content", level='error')
                 raise ValueError("Dynamic scraping failed to return content")
-                
-            # Handle cookie consent 
-            cookie_handled = self.dynamic_scraper.check_for_cookie_consent()
-            if cookie_handled:
-                self.log("Detected and handled cookie consent page")
-                # Now get updated page content
-                time.sleep(2)  
-                soup = self.dynamic_scraper.get_page_soup()
 
             # Store the soup in context
             context['soup'] = soup
             html_size = len(str(soup))
             self.log(f"Dynamic scraping returned content of size: {html_size} bytes")
             
-            return {'success': True, 'html_size': html_size, 'cookie_handled': cookie_handled}
+            return {'success': True, 'html_size': html_size, 'cookie_handled': False}
             
         except Exception as e:
             self.log(f"Error during dynamic scraping: {str(e)}", level='error')
@@ -599,29 +592,3 @@ class ScrapingPipeline:
         except Exception as e:
             self.log(f"Error searching for articles: {str(e)}", level='error')
             return []
-
-    def cleanup(self):
-        """
-        Clean up resources used by the pipeline.
-        
-        This should be called when the pipeline is no longer needed or
-        before application shutdown.
-        """
-        self.log("Cleaning up ScrapingPipeline resources")
-        
-        # Clean up dynamic scraper if initialised
-        if hasattr(self, 'dynamic_scraper'):
-            try:
-                self.dynamic_scraper.cleanup()
-                self.log("Successfully cleaned up dynamic scraper")
-            except Exception as e:
-                self.log(f"Error cleaning up dynamic scraper: {str(e)}", level='error')
-        
-        self.log("ScrapingPipeline cleanup completed")
-    
-    def __del__(self):
-        """Clean up resources when the object is destroyed"""
-        try:
-            self.cleanup()
-        except:
-            pass

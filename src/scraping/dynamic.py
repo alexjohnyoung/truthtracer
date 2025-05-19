@@ -2,7 +2,6 @@ from typing import Optional, Dict
 from urllib.parse import urlparse
 import time
 
-
 from DrissionPage import ChromiumPage, ChromiumOptions
 from bs4 import BeautifulSoup
 from .base import BaseScraper
@@ -67,14 +66,14 @@ class DynamicScraper(BaseScraper):
         self.max_retries = 2  # Number of retries
         self.retry_delay = 1.0  # Delay between retries
         self.page_load_timeout = 25  # Timeout for page load
-
         
-    def get_page_content(self, url) -> Optional[BeautifulSoup]:
+    def get_page_content(self, url, cleanup_after=False) -> Optional[BeautifulSoup]:
         """
         Fetch page content with dynamic loading support.
         
         Args:
             url: URL to scrape
+            cleanup_after: If True, browser will be cleaned up after getting content
             
         Returns:
             BeautifulSoup object or None if failed
@@ -92,30 +91,39 @@ class DynamicScraper(BaseScraper):
             time.sleep(1)
         
             self.logger.info(f"Successfully loaded page in {time.time() - start_time:.2f}s")
-            return BeautifulSoup(self.driver.html, 'lxml')
+            soup = BeautifulSoup(self.driver.html, 'lxml')
+            
+            if cleanup_after:
+                self.cleanup()
+                
+            return soup
           
         except Exception as e:
             self.logger.warning(f"Error loading page: {str(e)}")
             # Return whatever HTML we have
             try:
-                return BeautifulSoup(self.driver.html, 'lxml')
+                soup = BeautifulSoup(self.driver.html, 'lxml')
+                
+                if cleanup_after:
+                    self.cleanup()
+                    
+                return soup
             except:
                 return BeautifulSoup("", 'lxml')
 
-    def _cleanup_browser(self):
+    def cleanup(self):
         """Clean up browser resources"""
         try:
-            # Quit the driver
-            try:
-                self.driver.quit()
-            except:
-                pass
+            if hasattr(self, 'driver') and self.driver:
+                try:
+                    self.driver.quit()
+                    self.logger.info("Browser successfully quit")
+                except Exception as e:
+                    self.logger.warning(f"Error quitting driver: {str(e)}")
+                # Clear reference to driver
+                self.driver = None
         except Exception as e:
             self.logger.warning(f"Error cleaning up browser: {str(e)}")
-
-    def cleanup(self):
-        """Clean up all resources - public method called by other components"""
-        self._cleanup_browser()
 
     def get_page_soup(self) -> BeautifulSoup:
         """Get BeautifulSoup object of the current page"""
@@ -133,10 +141,7 @@ class DynamicScraper(BaseScraper):
 
     def __del__(self):
         """Clean up resources when the object is garbage collected"""
-        try:
-            self._cleanup_browser()
-        except:
-            pass
+        self.cleanup()
 
     def go_to_url(self, url: str, timeout: int = 15) -> bool:
         """Navigate to a URL

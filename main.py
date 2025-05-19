@@ -113,13 +113,6 @@ async def shutdown_event():
     except Exception as e:
         print(f"Error cleaning up ScrapingController: {str(e)}")
     
-    try:
-        google_scraper = GoogleSearchScraper()
-        google_scraper.cleanup()
-        print("Successfully cleaned up GoogleSearchScraper resources")
-    except Exception as e:
-        print(f"Error cleaning up GoogleSearchScraper: {str(e)}")
-    
     print("All resources cleaned up successfully")
 
 #------------------------------------------------------------------------------
@@ -170,14 +163,7 @@ async def process_url_async(analysis_id: str, url: str, max_references: int = 3,
         # Mark the analysis as complete
         analysis_store[analysis_id]["complete"] = True
         set_current_analysis_id(None)
-        
-        try:
-            google_scraper = GoogleSearchScraper()
-            if hasattr(google_scraper, '_dynamic_scraper') and google_scraper._dynamic_scraper is not None:
-                google_scraper.cleanup()
-                print(f"Cleaned up scraper resources for analysis {analysis_id}")
-        except Exception as e:
-            print(f"Error cleaning up resources for analysis {analysis_id}: {str(e)}")
+        print(f"Analysis {analysis_id} completed")
 
 #------------------------------------------------------------------------------
 # API ENDPOINTS

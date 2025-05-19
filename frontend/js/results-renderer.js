@@ -5,6 +5,9 @@ const ResultsRenderer = {
         const resultsSection = document.getElementById('resultsSection');
         resultsSection.classList.remove('d-none');
         
+        // Add class to body to shrink log container
+        document.body.classList.add('results-displayed');
+        
         const resultData = data.result || {};
         const articleData = resultData.article || {};
         
@@ -101,7 +104,7 @@ const ResultsRenderer = {
                 </div>
                 ` : ''}
                 
-                ${crossRefData.confidence ? `
+                ${crossRefData.confidence ? `                
                 <div class="text-center mt-3">
                     <span class="badge bg-info px-2 py-1">
                         Confidence: ${Math.round(crossRefData.confidence * 100)}%

@@ -29,8 +29,8 @@ def run_server(port=8080, open_browser=True):
         print(f"Serving TruthTracer frontend at {url}")
         
         # Open browser if requested
-        if open_browser:
-            webbrowser.open(url)
+        #if open_browser:
+           # webbrowser.open(url)
         
         print("Press Ctrl+C to stop the server")
         
