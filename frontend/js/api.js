@@ -4,17 +4,6 @@
 import Config from './config.js';
 
 const ApiService = {
-    // Check API status
-    async checkApiStatus() {
-        try {
-            const response = await fetch(`${Config.getApiUrl()}/`);
-            return { connected: response.ok };
-        } catch (error) {
-            console.error('API Connection Error:', error);
-            return { connected: false };
-        }
-    },
-    
     /**
      * Start the analysis of a URL
      * @param {string} url - URL to analyse
