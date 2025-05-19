@@ -132,14 +132,20 @@ class GoogleSearchScraper:
             self.logger.info(f"Using dynamic scraping for {url}")
             
             try:
-                soup = self.dynamic_scraper.get_page_content(url, cleanup_after=True)
+                # Use DynamicScraper's methods with delayed cleanup
+                soup = self.dynamic_scraper.get_page_content(url, cleanup_after=False)
                 
                 if soup:
-                    return self.dynamic_scraper.extract_content(soup, url)
+                    content = self.dynamic_scraper.extract_content(soup, url)
+
+                    self.dynamic_scraper.cleanup()
+                    return content
                 else:
                     self.logger.warning(f"Dynamic scraping failed to get content for {url}")
+                    self.dynamic_scraper.cleanup()
             except Exception as e:
                 self.logger.error(f"Dynamic scraping failed for {url}: {str(e)}")
+                self.dynamic_scraper.cleanup()
         else:
             self.logger.warning(f"Dynamic scraping unavailable for {url}")
         
@@ -241,15 +247,21 @@ class GoogleSearchScraper:
             results = []
             
             try:
-                # Get page content using DynamicScraper
-                soup = self.dynamic_scraper.get_page_content(search_url, cleanup_after=True)
+                soup = self.dynamic_scraper.get_page_content(search_url, cleanup_after=False)
                 
                 # Process the results if we have a valid soup object
                 if soup:
                     results = self._extract_results(soup, original_url, num_results)
+
+                if self.dynamic_scraper:
+                    self.dynamic_scraper.cleanup()
+                    
             except Exception as e:
                 self.logger.error(f"Error in dynamic scraping: {str(e)}")
                 self.logger.error("Dynamic scraping attempt failed")
+
+                if self.dynamic_scraper:
+                    self.dynamic_scraper.cleanup()
             
             return results
                 
