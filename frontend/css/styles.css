@@ -169,7 +169,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .log-container {
-    height: 350px;
+    height: 500px;
     overflow-y: auto;
     background: var(--dark-surface-lighter);
     padding: 0.5rem;
@@ -178,10 +178,11 @@ h1, h2, h3, h4, h5, h6 {
     border: 1px solid var(--dark-border);
     font-size: 0.8rem;
     margin-bottom: 1rem;
+    scroll-behavior: smooth;
 }
 
 .results-displayed .log-container {
-    height: 150px;
+    height: 250px;
     transition: height 0.5s ease-in-out;
 }
 

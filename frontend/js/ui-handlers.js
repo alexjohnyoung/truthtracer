@@ -71,12 +71,18 @@ const UIHandlers = {
             logMessages.appendChild(messageDiv);
         });
         
+        // Always scroll to bottom when new messages are added
         this.scrollLogToBottom();
     },
     
     scrollLogToBottom() {
-        const logMessages = document.getElementById('logMessages');
-        logMessages.scrollTop = logMessages.scrollHeight;
+        const logContainer = document.querySelector('.log-container');
+        if (logContainer) {
+            // Use a small delay to ensure DOM updates have completed
+            setTimeout(() => {
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }, 10);
+        }
     },
 
     // Reset UI for new analysis

@@ -332,7 +332,7 @@ class ScrapingPipeline:
 
         try:
             self.log(f"Getting page content for {url}")
-            soup = self.dynamic_scraper.get_page_content(url, cleanup_after=True)
+            soup = self.dynamic_scraper.get_page_content(url, cleanup_after=False)
             
             if not soup:
                 self.log("Dynamic scraping failed to return content", level='error')
@@ -342,12 +342,13 @@ class ScrapingPipeline:
             context['soup'] = soup
             html_size = len(str(soup))
             self.log(f"Dynamic scraping returned content of size: {html_size} bytes")
-            
+            self.dynamic_scraper.cleanup()
             return {'success': True, 'html_size': html_size, 'cookie_handled': False}
             
         except Exception as e:
             self.log(f"Error during dynamic scraping: {str(e)}", level='error')
             context['dynamic_failed'] = True
+            self.dynamic_scraper.cleanup()
             raise ValueError(f"Dynamic scraping failed: {str(e)}")
         
     def _handle_dynamic_scraping_error(self, context: Dict, error: Exception) -> bool:
@@ -565,7 +566,7 @@ class ScrapingPipeline:
             
     def search_for_articles(self, query: str, original_url: str = None, days_old: int = 7, num_results: int = 10, publish_date: str = None) -> List[Dict[str, str]]:
         """
-        Search for news articles (delegates to GoogleSearchScraper)
+        Search for news articles
         
         Args:
             query: The search query
@@ -577,18 +578,55 @@ class ScrapingPipeline:
         Returns:
             List of dictionaries containing article information
         """
-        self.log(f"Searching for articles with query: {query}, days_old: {days_old}")
-            
-        try:
-            results = self.google_scraper.search_news(
+        self.log(f"Search query: '{query}'")
+        
+        if self.google_scraper:
+            return self.google_scraper.search_news(
                 query=query,
                 original_url=original_url,
-                num_results=num_results, 
-                days_old=days_old, 
+                days_old=days_old,
+                num_results=num_results,
                 publish_date=publish_date
             )
-            self.log(f"Found {len(results)} articles")
-            return results
-        except Exception as e:
-            self.log(f"Error searching for articles: {str(e)}", level='error')
+        else:
+            self.log("GoogleSearchScraper not available", level="error")
             return []
+
+    def cleanup(self):
+        """
+        Clean up resources used by the pipeline.
+        
+        Should be called when the pipeline is no longer needed
+        or before application shutdown.
+        """
+        self.log("Cleaning up ScrapingPipeline resources")
+        
+        # Clean up dynamic scraper if initialized
+        if self._dynamic_scraper is not None:
+            try:
+                self._dynamic_scraper.cleanup()
+                self.log("DynamicScraper resources released")
+            except Exception as e:
+                self.log(f"Error cleaning up DynamicScraper: {str(e)}", level="error")
+            finally:
+                self._dynamic_scraper = None
+        
+        # Clean up Google scraper if initialized
+        if self._google_scraper is not None:
+            try:
+                self._google_scraper.cleanup()
+                self.log("GoogleSearchScraper resources released")
+            except Exception as e:
+                self.log(f"Error cleaning up GoogleSearchScraper: {str(e)}", level="error")
+            finally:
+                self._google_scraper = None
+        
+        self.log("ScrapingPipeline cleanup completed")
+    
+    def __del__(self):
+        """Clean up resources when the object is destroyed"""
+        try:
+            self.cleanup()
+        except Exception:
+            # Cannot use logging here as logger might be destroyed
+            pass

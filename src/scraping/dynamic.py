@@ -14,59 +14,69 @@ class DynamicScraper(BaseScraper):
         self._cookie_handler = None
 
         # Optimise Chrome options for speed and stability
-        options = ChromiumOptions()
-        #options.set_argument('--headless') 
-        options.set_argument('--disable-dev-shm-usage')
-        options.set_argument('--disable-software-rasterizer')
-        options.set_argument('--disable-extensions')
-        options.set_argument('--disable-features=site-per-process')
-        options.set_argument('--disable-gpu') 
+        self.options = ChromiumOptions()
+        #self.options.set_argument('--headless') 
+        self.options.set_argument('--disable-dev-shm-usage')
+        self.options.set_argument('--disable-software-rasterizer')
+        self.options.set_argument('--disable-extensions')
+        self.options.set_argument('--disable-features=site-per-process')
+        self.options.set_argument('--disable-gpu') 
 
         # Add performance options
-        options.set_argument('--blink-settings=imagesEnabled=false') 
-        options.set_argument('--disable-remote-fonts')  
-        options.set_argument('--disable-sync') 
-        options.set_argument('--disable-plugins')  
-        options.set_argument('--disable-plugins-discovery')  
-        options.set_argument('--disable-bundled-ppapi-flash')  
-        options.set_argument('--disable-component-extensions-with-background-pages')  
-        options.set_argument('--disable-default-apps')  
-        options.set_argument('--disable-background-networking')  
-        options.set_argument('--disable-background-timer-throttling')  
-        options.set_argument('--disable-backgrounding-occluded-windows')  
-        options.set_argument('--disable-breakpad')  
-        options.set_argument('--disable-client-side-phishing-detection')  
-        options.set_argument('--disable-infobars')  
-        options.set_argument('--disable-notifications')  
-        options.set_argument('--disable-popup-blocking')  
-        options.set_argument('--disable-prompt-on-repost')  
-        options.set_argument('--no-first-run')  
-        options.set_argument('--no-default-browser-check')  
-        options.set_argument('--no-pings')  
-        options.set_argument('--disable-ipc-flooding-protection')  
-        options.set_argument('--disable-hang-monitor')  
-        options.set_argument('--disable-features=IsolateOrigins')  
-        options.set_argument('--window-size=400,400') 
+        self.options.set_argument('--blink-settings=imagesEnabled=false') 
+        self.options.set_argument('--disable-remote-fonts')  
+        self.options.set_argument('--disable-sync') 
+        self.options.set_argument('--disable-plugins')  
+        self.options.set_argument('--disable-plugins-discovery')  
+        self.options.set_argument('--disable-bundled-ppapi-flash')  
+        self.options.set_argument('--disable-component-extensions-with-background-pages')  
+        self.options.set_argument('--disable-default-apps')  
+        self.options.set_argument('--disable-background-networking')  
+        self.options.set_argument('--disable-background-timer-throttling')  
+        self.options.set_argument('--disable-backgrounding-occluded-windows')  
+        self.options.set_argument('--disable-breakpad')  
+        self.options.set_argument('--disable-client-side-phishing-detection')  
+        self.options.set_argument('--disable-infobars')  
+        self.options.set_argument('--disable-notifications')  
+        self.options.set_argument('--disable-popup-blocking')  
+        self.options.set_argument('--disable-prompt-on-repost')  
+        self.options.set_argument('--no-first-run')  
+        self.options.set_argument('--no-default-browser-check')  
+        self.options.set_argument('--no-pings')  
+        self.options.set_argument('--disable-ipc-flooding-protection')  
+        self.options.set_argument('--disable-hang-monitor')  
+        self.options.set_argument('--disable-features=IsolateOrigins')  
+        self.options.set_argument('--window-size=400,400') 
 
         # Lazy loading for images and iframes
-        options.set_argument('--enable-features=LazyFrameLoading,LazyImageLoading')
-        options.set_argument('--force-lazy-image-loading')  
-        options.set_argument('--enable-lazy-image-loading')  
-        options.set_argument('--enable-lazy-frame-loading')  
+        self.options.set_argument('--enable-features=LazyFrameLoading,LazyImageLoading')
+        self.options.set_argument('--force-lazy-image-loading')  
+        self.options.set_argument('--enable-lazy-image-loading')  
+        self.options.set_argument('--enable-lazy-frame-loading')  
 
         # Set timeouts directly through ChromiumOptions
-        options.page_load_timeout = 25
-        options.script_timeout = 15
-        options.set_timeouts(15, 25, 25)  # implicitly_wait, page_load, script
-        options.page_load_strategy = 'eager' 
-
-        self.driver = ChromiumPage(options)
-        self.driver.set.timeouts(15, 25, 25)  # implicitly_wait, page_load, script
-
+        self.options.page_load_timeout = 25
+        self.options.script_timeout = 15
+        self.options.set_timeouts(15, 25, 25)  # implicitly_wait, page_load, script
+        self.options.page_load_strategy = 'eager' 
+        
+        self.driver = self._initialize_driver()
+        
         self.max_retries = 2  # Number of retries
         self.retry_delay = 1.0  # Delay between retries
         self.page_load_timeout = 25  # Timeout for page load
         
+    def _initialize_driver(self):
+        """Initialize or reinitialize the ChromiumPage driver with current options"""
+        try:
+            driver = ChromiumPage(self.options)
+            driver.set.timeouts(15, 25, 25)  # implicitly_wait, page_load, script
+            self.logger.info("Successfully initialized ChromiumPage driver")
+            return driver
+        except Exception as e:
+            self.logger.error(f"Failed to initialize driver: {str(e)}")
+            return None
+
     def get_page_content(self, url, cleanup_after=False) -> Optional[BeautifulSoup]:
         """
         Fetch page content with dynamic loading support.
@@ -82,6 +92,11 @@ class DynamicScraper(BaseScraper):
             return None
         
         start_time = time.time()
+        
+        if self.driver is None:
+            self.driver = self._initialize_driver()
+            if self.driver is None:
+                return None
         
         try:
             # Navigate to the URL with a longer timeout
@@ -102,12 +117,16 @@ class DynamicScraper(BaseScraper):
             self.logger.warning(f"Error loading page: {str(e)}")
             # Return whatever HTML we have
             try:
-                soup = BeautifulSoup(self.driver.html, 'lxml')
-                
-                if cleanup_after:
-                    self.cleanup()
+                if self.driver is not None:
+                    soup = BeautifulSoup(self.driver.html, 'lxml')
                     
-                return soup
+                    if cleanup_after:
+                        self.cleanup()
+                        
+                    return soup
+                else:
+                    self.logger.warning("Driver is None, cannot get HTML")
+                    return BeautifulSoup("", 'lxml')
             except:
                 return BeautifulSoup("", 'lxml')
 
@@ -120,14 +139,23 @@ class DynamicScraper(BaseScraper):
                     self.logger.info("Browser successfully quit")
                 except Exception as e:
                     self.logger.warning(f"Error quitting driver: {str(e)}")
-                # Clear reference to driver
-                self.driver = None
+                finally:
+                    # Always clear reference to driver, even if an error occurred
+                    self.driver = None
         except Exception as e:
             self.logger.warning(f"Error cleaning up browser: {str(e)}")
 
     def get_page_soup(self) -> BeautifulSoup:
         """Get BeautifulSoup object of the current page"""
         try:
+            # Check if driver is None and try to reinitialize it
+            if self.driver is None:
+                self.logger.warning("Driver is None, attempting to reinitialize in get_page_soup")
+                self.driver = self._initialize_driver()
+                if self.driver is None:
+                    self.logger.error("Failed to reinitialize driver in get_page_soup")
+                    return BeautifulSoup("", 'html.parser')
+                
             # DrissionPage has a built-in property to get page HTML
             html = self.driver.html
             
@@ -137,7 +165,7 @@ class DynamicScraper(BaseScraper):
             return soup
         except Exception as e:
             self.logger.error(f"Error getting page soup: {str(e)}")
-            return BeautifulSoup("", 'html.parser') 
+            return BeautifulSoup("", 'html.parser')
 
     def __del__(self):
         """Clean up resources when the object is garbage collected"""
@@ -155,6 +183,14 @@ class DynamicScraper(BaseScraper):
         """
         self.logger.info(f"Navigating to URL: {url}")
         
+        # Check if driver is None and try to reinitialize it
+        if self.driver is None:
+            self.logger.warning("Driver is None, attempting to reinitialize")
+            self.driver = self._initialize_driver()
+            if self.driver is None:
+                self.logger.error("Failed to reinitialize driver")
+                return False
+        
         try:
             self.driver.get(url, timeout=timeout)
             return True
@@ -168,88 +204,4 @@ class DynamicScraper(BaseScraper):
         Returns:
             True if cookie consent was handled, False otherwise
         """
-        try:
-            # Special handling for Google consent pages
-            current_url = self.driver.url
-            self.logger.info(f"Checking for cookie consent on: {current_url}")
-            
-            # Google consent specific check
-            if 'consent.google.com' in current_url:
-                self.logger.info("Detected Google consent page, using special handling")
-
-                for selector in [
-                    'button[aria-label="Accept all"]',
-                    'button:contains("Accept all")',
-                    'form[action*="consent.google.com"] button',
-                    '//div[contains(@class,"tB5Jxf-")]//button',
-                    '//button[contains(., "Accept all")]',
-                    '//button[contains(translate(., "ACEPT L", "acept l"), "accept all")]'
-                ]:
-                    try:
-                        # CSS selector first
-                        if not selector.startswith('//'):
-                            elements = self.driver.eles(selector)
-                        else:
-                            # XPath if selector starts with //
-                            elements = self.driver.eles(selector, mode='xpath')
-                        
-                        if elements:
-                            for element in elements[:3]:  # Only try first 3 matches
-                                try:
-                                    element.click()
-                                    self.logger.info(f"Clicked Google consent button using selector: {selector}")
-                                    time.sleep(1.5)  # Longer wait for Google consent
-                                    return True
-                                except Exception as e:
-                                    self.logger.debug(f"Failed to click element with selector {selector}: {str(e)}")
-                                    continue
-                    except Exception as e:
-                        self.logger.debug(f"Error finding elements with selector '{selector}': {str(e)}")
-                        continue
-                
-                # try Js click on any potential consent button
-                try:
-                    result = self.driver.run_js('''
-                        const buttons = document.querySelectorAll('button');
-                        for (const button of buttons) {
-                            if (button.innerText.toLowerCase().includes('accept') || 
-                                button.innerText.toLowerCase().includes('agree') ||
-                                button.innerText.toLowerCase().includes('consent')) {
-                                button.click();
-                                return true;
-                            }
-                        }
-                        return false;
-                    ''')
-                    if result:
-                        self.logger.info("Clicked consent button using JavaScript")
-                        time.sleep(1.5)
-                        return True
-                except Exception as e:
-                    self.logger.debug(f"Error clicking with JavaScript: {str(e)}")
-            
-            # Generic consent handling 
-            common_texts = ['accept all', 'i accept', 'accept cookies', 'agree', 'got it', 'ok', 'allow']
-            
-            for text in common_texts:
-                try:
-                    # Find any clickable element containing this text
-                    elements = self.driver.eles(f'button:contains("{text}")')
-                    
-                    if elements:
-                        for element in elements[:3]:  # Only try first 3 matches
-                            try:
-                                element.click()
-                                self.logger.info(f"Clicked cookie consent with text: {text}")
-                                time.sleep(0.5) 
-                                return True
-                            except:
-                                continue
-                except Exception as e:
-                    self.logger.debug(f"Error finding elements with text '{text}': {str(e)}")
-                    continue
-            
-            return False
-        except Exception as e:
-            self.logger.error(f"Error handling cookie consent: {str(e)}")
-            return False
+        return False 

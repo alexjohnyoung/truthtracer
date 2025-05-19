@@ -144,6 +144,7 @@ class MetadataExtractor:
             headline = self._get_headline_from_schema(schema_data)
             if headline:
                 content['headline'] = headline
+                content['headline_source'] = 'schema.org'
                 self.logger.info(f"Found headline in schema.org data: {content['headline'][:50]}...")
                 return
         
@@ -158,48 +159,31 @@ class MetadataExtractor:
         ]:
             if meta_tag and meta_tag.get('content'):
                 content['headline'] = meta_tag.get('content').strip()
+                content['headline_source'] = 'meta tag'
                 self.logger.info(f"Found headline in meta tag: {content['headline'][:50]}...")
                 return
         
-        # 3. Try common heading elements with article/headline classes
-        for selector in [
-            'h1.headline', 'h1.article-title', 'h1.entry-title', 'h1.post-title', 
-            '.article_title', '.headline', '.article-headline', '.post-headline',
-            'header h1', 'article h1', '.article_header h1', '.article-header h1',
-            'h1[itemprop="headline"]', 'h1[class*="title"]', 'h1[class*="headline"]',
-            '.article-title', '.story-title', '.post-title', '[data-testid="headline"]'
-        ]:
-            title_elem = soup.select_one(selector)
-            if title_elem:
-                content['headline'] = title_elem.text.strip()
-                self.logger.info(f"Found headline using selector '{selector}': {content['headline'][:50]}...")
-                return
-        
-        # 4. Default to any h1
-        title_tag = soup.find('h1')
-        if title_tag:
-            content['headline'] = title_tag.text.strip()
-            self.logger.info(f"Found headline using default h1: {content['headline'][:50]}...")
-            return
-        
-        # 5. Try article header
-        header = soup.find(['header', 'div'], class_=lambda c: c and any(x in c.lower() for x in ['headline', 'title', 'header']) if c else False)
-        if header:
-            h_tag = header.find(['h1', 'h2'])
-            if h_tag:
-                content['headline'] = h_tag.text.strip()
-                self.logger.info(f"Found headline in article header: {content['headline'][:50]}...")
+        # 3. Look for h1 elements
+        h1_tags = soup.find_all('h1', limit=3)
+        for h1 in h1_tags:
+            text = h1.get_text(strip=True)
+            if text and len(text) > 10 and len(text) < 300:
+                content['headline'] = text
+                content['headline_source'] = 'h1 tag'
+                self.logger.info(f"Found headline in h1 tag: {content['headline'][:50]}...")
                 return
                 
-        # 6. Fallback to title tag
-        title = soup.find('title')
-        if title:
-            # Use the shared headline cleaning function from text_utils
-            title_text = title.text.strip()
-            content['headline'] = clean_title_from_headline(title_text)
-            self.logger.info(f"Found headline using page title: {content['headline'][:50]}...")
-            return
-            
+        # 4. Look for headline class or title class
+        headline_classes = soup.find_all(['div', 'h2', 'h3', 'h4', 'p'], 
+                                        class_=re.compile(r'headline|title|post-title|entry-title|article-title', re.I))
+        for tag in headline_classes:
+            text = tag.get_text(strip=True)
+            if text and len(text) > 10 and len(text) < 300:
+                content['headline'] = text
+                content['headline_source'] = 'title class'
+                self.logger.info(f"Found headline in headline/title class: {content['headline'][:50]}...")
+                return
+                
         self.logger.info("Failed to extract headline")
 
     def _extract_author(self, soup: BeautifulSoup, content: Dict) -> None:
@@ -214,6 +198,7 @@ class MetadataExtractor:
             author = self._get_author_from_schema(schema_data)
             if author:
                 content['author'] = author
+                content['author_source'] = 'schema.org'
                 self.logger.info(f"Found author in schema.org data: {author}")
                 return
                 
@@ -239,6 +224,7 @@ class MetadataExtractor:
                 author = meta_tag.get('content').strip()
                 if author and author.lower() not in ['admin', 'administrator', 'staff', 'guest', 'anonymous']:
                     content['author'] = author
+                    content['author_source'] = 'meta tag'
                     self.logger.info(f"Found author in meta tag: {author}")
                     return
                     
@@ -331,6 +317,7 @@ class MetadataExtractor:
             date = self._get_date_from_schema(schema_data)
             if date:
                 content['publishDate'] = date
+                content['date_source'] = 'schema.org'
                 self.logger.info(f"Found date in schema.org data: {date}")
                 return
                 
@@ -351,6 +338,7 @@ class MetadataExtractor:
                 date = meta_tag.get('content').strip()
                 if date:
                     content['publishDate'] = date
+                    content['date_source'] = 'meta tag'
                     self.logger.info(f"Found date in meta tag: {date}")
                     return
                     
@@ -360,6 +348,7 @@ class MetadataExtractor:
                 date = time_tag.get('datetime').strip()
                 if date:
                     content['publishDate'] = date
+                    content['date_source'] = 'time tag'
                     self.logger.info(f"Found date in time element: {date}")
                     return
                     

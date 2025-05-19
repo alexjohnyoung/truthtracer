@@ -506,9 +506,14 @@ class GoogleSearchScraper:
         
         # Clean up DynamicScraper if it was initialised
         if self._dynamic_scraper is not None:
-            self._dynamic_scraper.cleanup()
-            self._dynamic_scraper = None
-            self.logger.info("DynamicScraper resources released")
+            try:
+                self._dynamic_scraper.cleanup()
+                self.logger.info("DynamicScraper resources released")
+            except Exception as e:
+                self.logger.error(f"Error cleaning up DynamicScraper: {str(e)}")
+            finally:
+                # Always clear the reference, even if cleanup failed
+                self._dynamic_scraper = None
         
         # Reset instance variables
         self.__class__._initialised = False
@@ -518,7 +523,7 @@ class GoogleSearchScraper:
         """Clean up resources when the scraper is destroyed"""
         try:
             self.cleanup()
-        except Exception as e:
+        except Exception:
             # Should not log here as logger might be destroyed
             pass
 
