@@ -496,34 +496,31 @@ class GoogleSearchScraper:
         return False
 
     def cleanup(self):
-        """
-        Clean up resources used by the scraper.
-        
-        Should be called when the scraper is no longer needed
-        or before application shutdown.
-        """
+        """Clean up resources used by the GoogleSearchScraper"""
         self.logger.info("Cleaning up GoogleSearchScraper resources")
         
-        # Clean up DynamicScraper if it was initialised
-        if self._dynamic_scraper is not None:
+        # Clean up dynamic scraper if it was created
+        if hasattr(self, '_dynamic_scraper') and self._dynamic_scraper is not None:
             try:
                 self._dynamic_scraper.cleanup()
-                self.logger.info("DynamicScraper resources released")
+                self.logger.info("Successfully cleaned up DynamicScraper")
+                self._dynamic_scraper = None
             except Exception as e:
                 self.logger.error(f"Error cleaning up DynamicScraper: {str(e)}")
-            finally:
-                # Always clear the reference, even if cleanup failed
-                self._dynamic_scraper = None
         
-        # Reset instance variables
-        self.__class__._initialised = False
         self.logger.info("GoogleSearchScraper cleanup completed")
-
+    
     def __del__(self):
-        """Clean up resources when the scraper is destroyed"""
+        """Clean up resources when the object is destroyed"""
         try:
             self.cleanup()
-        except Exception:
-            # Should not log here as logger might be destroyed
+        except Exception as e:
+            pass
+
+        try:
+            if self.__class__._instance is self:
+                self.__class__._instance = None
+                self.__class__._initialised = False
+        except:
             pass
 

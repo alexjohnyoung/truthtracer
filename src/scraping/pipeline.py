@@ -594,32 +594,36 @@ class ScrapingPipeline:
 
     def cleanup(self):
         """
-        Clean up resources used by the pipeline.
+        Clean up all resources used by the pipeline.
         
-        Should be called when the pipeline is no longer needed
-        or before application shutdown.
+        This should be called when the pipeline is no longer needed or
+        before application shutdown.
         """
         self.log("Cleaning up ScrapingPipeline resources")
         
-        # Clean up dynamic scraper if initialized
-        if self._dynamic_scraper is not None:
-            try:
-                self._dynamic_scraper.cleanup()
-                self.log("DynamicScraper resources released")
-            except Exception as e:
-                self.log(f"Error cleaning up DynamicScraper: {str(e)}", level="error")
-            finally:
-                self._dynamic_scraper = None
+        try:
+            if hasattr(self, 'static_scraper') and self.static_scraper is not None:
+                self.static_scraper.cleanup()
+                self.log("Successfully cleaned up StaticScraper")
+        except Exception as e:
+            self.log(f"Error cleaning up StaticScraper: {str(e)}", level='error')
         
-        # Clean up Google scraper if initialized
-        if self._google_scraper is not None:
-            try:
-                self._google_scraper.cleanup()
-                self.log("GoogleSearchScraper resources released")
-            except Exception as e:
-                self.log(f"Error cleaning up GoogleSearchScraper: {str(e)}", level="error")
-            finally:
+        try:
+            if hasattr(self, '_dynamic_scraper') and self._dynamic_scraper is not None:
+                self._dynamic_scraper.cleanup()
+                self.log("Successfully cleaned up DynamicScraper")
+                self._dynamic_scraper = None
+        except Exception as e:
+            self.log(f"Error cleaning up DynamicScraper: {str(e)}", level='error')
+            
+        try:
+            if hasattr(self, '_google_scraper') and self._google_scraper is not None:
+                if hasattr(self._google_scraper, 'cleanup'):
+                    self._google_scraper.cleanup()
+                    self.log("Successfully cleaned up GoogleSearchScraper")
                 self._google_scraper = None
+        except Exception as e:
+            self.log(f"Error cleaning up GoogleSearchScraper: {str(e)}", level='error')
         
         self.log("ScrapingPipeline cleanup completed")
     
@@ -628,5 +632,4 @@ class ScrapingPipeline:
         try:
             self.cleanup()
         except Exception:
-            # Cannot use logging here as logger might be destroyed
             pass

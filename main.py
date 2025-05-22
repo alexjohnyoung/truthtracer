@@ -100,16 +100,21 @@ async def shutdown_event():
     """Application shutdown event handler - clean up resources"""
     print("TruthTracer API shutting down, cleaning up resources...")
     
+    # Flag to indicate shutdown is in progress to prevent new tasks
+    app.state.shutting_down = True
+    
     # Cleanup resources
     try:
-        news_processor.cleanup()
-        print("Successfully cleaned up NewsProcessor resources")
+        if hasattr(news_processor, 'cleanup'):
+            news_processor.cleanup()
+            print("Successfully cleaned up NewsProcessor resources")
     except Exception as e:
         print(f"Error cleaning up NewsProcessor: {str(e)}")
     
     try:
-        scraping_controller.cleanup()
-        print("Successfully cleaned up ScrapingController resources")
+        if hasattr(scraping_controller, 'cleanup'):
+            scraping_controller.cleanup()
+            print("Successfully cleaned up ScrapingController resources")
     except Exception as e:
         print(f"Error cleaning up ScrapingController: {str(e)}")
     
@@ -135,7 +140,15 @@ async def process_url_async(analysis_id: str, url: str, max_references: int = 3,
     analysis_store[analysis_id]["complete"] = False
     analysis_store[analysis_id]["success"] = False
     
+    # Block requests if the server is shutting down
     try:
+        if hasattr(app.state, "shutting_down") and app.state.shutting_down:
+            analysis_store[analysis_id]["error"] = "Server is shutting down, cannot process request"
+            analysis_store[analysis_id]["complete"] = True
+            analysis_store[analysis_id]["success"] = False
+            update_status("Analysis cancelled: server is shutting down", 100, "Error", -1)
+            return
+            
         # Start article analysis 
         result = await news_processor.analyse_article(url, max_references=max_references, days_old=days_old)
         

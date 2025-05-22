@@ -47,11 +47,11 @@ class NewsProcessor:
         """
         self.logger.info("Cleaning up NewsProcessor resources")
         
-        # Clean up ScrapingController if it was created by this instance
         if hasattr(self, '_scraping_controller') and self._scraping_controller is not None:
             try:
                 self._scraping_controller.cleanup()
                 self.logger.info("Successfully cleaned up ScrapingController")
+                self._scraping_controller = None
             except Exception as e:
                 self.logger.error(f"Error cleaning up ScrapingController: {str(e)}")
         
@@ -61,7 +61,7 @@ class NewsProcessor:
         """Clean up resources when the object is destroyed"""
         try:
             self.cleanup()
-        except:
+        except Exception:
             pass
 
     def get_search_query(self, headline: str) -> str:

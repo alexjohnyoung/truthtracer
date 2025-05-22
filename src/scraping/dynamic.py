@@ -98,6 +98,7 @@ class DynamicScraper(BaseScraper):
             if self.driver is None:
                 return None
         
+        soup = None
         try:
             # Navigate to the URL with a longer timeout
             self.driver.get(url, timeout=self.page_load_timeout + 5)
@@ -107,10 +108,6 @@ class DynamicScraper(BaseScraper):
         
             self.logger.info(f"Successfully loaded page in {time.time() - start_time:.2f}s")
             soup = BeautifulSoup(self.driver.html, 'lxml')
-            
-            if cleanup_after:
-                self.cleanup()
-                
             return soup
           
         except Exception as e:
@@ -119,43 +116,39 @@ class DynamicScraper(BaseScraper):
             try:
                 if self.driver is not None:
                     soup = BeautifulSoup(self.driver.html, 'lxml')
-                    
-                    if cleanup_after:
-                        self.cleanup()
-                        
                     return soup
                 else:
                     self.logger.warning("Driver is None, cannot get HTML")
                     return BeautifulSoup("", 'lxml')
             except:
                 return BeautifulSoup("", 'lxml')
+        finally:
+            if cleanup_after:
+                self.cleanup()
 
     def cleanup(self):
         """Clean up browser resources"""
         try:
-            if hasattr(self, 'driver') and self.driver:
+            if self.driver:
+                try:
+                    self.driver.close()
+                    self.logger.info("Browser tab closed")
+                except Exception as e:
+                    self.logger.warning(f"Error closing browser tab: {str(e)}")
+                
                 try:
                     self.driver.quit()
                     self.logger.info("Browser successfully quit")
                 except Exception as e:
                     self.logger.warning(f"Error quitting driver: {str(e)}")
-                finally:
-                    # Always clear reference to driver, even if an error occurred
-                    self.driver = None
         except Exception as e:
             self.logger.warning(f"Error cleaning up browser: {str(e)}")
+        finally:
+            self.driver = None
 
     def get_page_soup(self) -> BeautifulSoup:
         """Get BeautifulSoup object of the current page"""
         try:
-            # Check if driver is None and try to reinitialize it
-            if self.driver is None:
-                self.logger.warning("Driver is None, attempting to reinitialize in get_page_soup")
-                self.driver = self._initialize_driver()
-                if self.driver is None:
-                    self.logger.error("Failed to reinitialize driver in get_page_soup")
-                    return BeautifulSoup("", 'html.parser')
-                
             # DrissionPage has a built-in property to get page HTML
             html = self.driver.html
             
@@ -169,7 +162,10 @@ class DynamicScraper(BaseScraper):
 
     def __del__(self):
         """Clean up resources when the object is garbage collected"""
-        self.cleanup()
+        try:
+            self.cleanup()
+        except Exception:
+            pass
 
     def go_to_url(self, url: str, timeout: int = 15) -> bool:
         """Navigate to a URL

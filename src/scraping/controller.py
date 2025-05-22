@@ -184,12 +184,21 @@ class ScrapingController:
         """
         self.log("Cleaning up ScrapingController resources")
         
-        # Clean up pipeline resources 
         try:
-            self.pipeline.cleanup()
-            self.log("Successfully cleaned up pipeline resources")
+            if hasattr(self, 'pipeline') and self.pipeline is not None:
+                self.pipeline.cleanup()
+                self.log("Successfully cleaned up pipeline resources")
         except Exception as e:
             self.log(f"Error cleaning up pipeline: {str(e)}", level='error')
+            
+        try:
+            if hasattr(self, '_google_scraper') and self._google_scraper is not None:
+                if hasattr(self._google_scraper, 'cleanup'):
+                    self._google_scraper.cleanup()
+                    self.log("Successfully cleaned up GoogleSearchScraper")
+                self._google_scraper = None
+        except Exception as e:
+            self.log(f"Error cleaning up GoogleSearchScraper: {str(e)}", level='error')
         
         self.log("ScrapingController cleanup completed")
     
@@ -197,5 +206,5 @@ class ScrapingController:
         """Clean up resources when the object is destroyed"""
         try:
             self.cleanup()
-        except:
+        except Exception:
             pass
